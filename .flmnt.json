@@ -1,0 +1,10 @@
+{
+  "server_url": "http://localhost:8000/mcp",
+  "project_id": "43986110-ccf8-459a-9f99-5a6fe34b906c",
+  "local_graphql_endpoint": "http://localhost:4000/graphql",
+  "volumes_path": "~/.flmnt/volumes",
+  "compose_files": [
+    "docker/docker-compose.local.yml"
+  ],
+  "env_file": ".env.local"
+}
