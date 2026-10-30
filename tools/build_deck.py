@@ -705,61 +705,76 @@ def try_action():
 SEQ_GROUP = "hueSeq"
 
 
-def sequence_button(bid, text, x, y, color, *, step1="hueScene1", step1_seconds="30",
-                    step2="hueEffect", step2_seconds="30", loop="yes", max_minutes="0", end=""):
-    """Runs one action button, holds, runs a second, holds, then loops or ends. The look and effect live
-    in the action buttons, so this only orders them. Longer chains are built from triggers."""
+def sequence_button(bid, text, x, y, color, *, scene1="1", effect1="none", seconds1="30",
+                    scene2="2", effect2="none", seconds2="30", when_done="loop", max_minutes="0"):
+    """Up to two linked scenes, each with its own effect and hold time, then loop, off or stay. Each step
+    sets this button's look/effect settings and calls the shared apply button, like an action button."""
+    def step(n):
+        return [
+            set_string("look", "scene"),
+            set_string("lookValue", f"/$scene{n}$/"),
+            set_string("effect", f"/$effect{n}$/"),
+            trigger_button(APPLY_ID, 0, queueable=True),
+            wait_ms(f"ms{n}"),
+            set_local("elapsed", f"ms{n}", op="+="),
+        ]
+
+    def lights_off():
+        out = []
+        for n in (1, 2):
+            out.append(if_(f"scene{n}Len", ">", "0", [
+                set_string("look", "off"), set_string("lookValue", f"/$scene{n}$/"), set_string("effect", "none"),
+                trigger_button(APPLY_ID, 0, queueable=True),
+                wait_ms("1200"),        # let the shared button read these settings before they change
+            ]))
+        return out
+
     return button(bid, text, x, y, color, [
-        comment("TWO-STEP SEQUENCE. Attach any trigger (right-click > Edit Triggers). Runs the action button "
-                "step1Button, waits step1Seconds, runs step2Button, waits step2Seconds, then loops or ends. "
-                "Starting it stops any other running sequence; 'Hue: Stop sequence' stops it.", 1),
+        comment("SCENE SEQUENCE. Attach any trigger (right-click > Edit Triggers). Shows scene 1 with effect 1 for "
+                "seconds1, then scene 2 with effect 2 for seconds2, then does whenDone. 'Hue: Stop sequence' stops it.", 1),
         comment("SETTINGS - edit the values below.\n"
-                "step1Button / step2Button: the ID of an action button (right-click a button and click its ID to copy it). "
-                "Leave step2Button empty for a single step\n"
-                "step1Seconds / step2Seconds: how long to hold that step (1 or more)\n"
-                "loop: yes = repeat until stopped (or maxMinutes), no = run once\n"
-                "maxMinutes: with loop yes, stop after this many minutes; 0 = until stopped\n"
-                "endButton: an action button to run when the sequence ends, e.g. hueOff; empty = none", 2),
-        set_string("step1Button", step1),
-        set_local("step1Seconds", step1_seconds),
-        set_string("step2Button", step2),
-        set_local("step2Seconds", step2_seconds),
-        set_string("loop", loop),
+                "scene1 / scene2: a scene slot linked with 'Hue: Link Scenes' (1-4). Leave scene2 empty for one scene\n"
+                f"effect1 / effect2: {EFFECT_CHOICES}\n"
+                "seconds1 / seconds2: how long to hold each scene (1 or more)\n"
+                "whenDone: loop = start again (until stopped or maxMinutes), off = turn the scenes' rooms off, stay = leave as is\n"
+                "maxMinutes: with loop, turn off and stop after this many minutes; 0 = until stopped", 2),
+        set_string("scene1", scene1),
+        set_string("effect1", effect1),
+        set_local("seconds1", seconds1),
+        set_string("scene2", scene2),
+        set_string("effect2", effect2),
+        set_local("seconds2", seconds2),
+        set_string("whenDone", when_done),
         set_local("maxMinutes", max_minutes),
-        set_string("endButton", end),
         comment("END OF SETTINGS.", 2),
         stop_button(SEQ_GROUP, ongoing=True, queued=True, include_self=False),
-        set_local("step1Ms", "(step1Seconds * 1000)"),
-        set_local("step2Ms", "(step2Seconds * 1000)"),
+        set_string("brightness", "100"),
+        set_local("pulses", "1"),
+        set_string("speed", "0.5"),
+        set_local("ms1", "(seconds1 * 1000)"),
+        set_local("ms2", "(seconds2 * 1000)"),
         set_local("maxMs", "(maxMinutes * 60000)"),
-        str_len("step2Len", "/$step2Button$/"),
+        str_len("scene1Len", "/$scene1$/"),
+        str_len("scene2Len", "/$scene2$/"),
         set_local("elapsed", "0"),
         set_local("done", "0"),
-        set_local("ran", "0"),
-        if_("step1Ms", "<", "1000", [alert("Hue sequence: step1Seconds must be 1 or more."), set_local("done", "1")]),
-        if_("step2Len", ">", "0", [
-            if_("step2Ms", "<", "1000", [alert("Hue sequence: step2Seconds must be 1 or more."), set_local("done", "1")]),
+        if_("scene1Len", "==", "0", [alert("Hue sequence: set scene1 to a linked slot (1-4)."), set_local("done", "1")]),
+        if_("ms1", "<", "1000", [alert("Hue sequence: seconds1 must be 1 or more."), set_local("done", "1")]),
+        if_("scene2Len", ">", "0", [
+            if_("ms2", "<", "1000", [alert("Hue sequence: seconds2 must be 1 or more."), set_local("done", "1")]),
         ]),
         repeat("100000", [
             break_if("done", "==", "1"),
-            trigger_button("/$step1Button$/", 0, queueable=True),
-            set_local("ran", "1"),
-            wait_ms("step1Ms"),
-            set_local("elapsed", "step1Ms", op="+="),
-            if_("step2Len", ">", "0", [
-                trigger_button("/$step2Button$/", 0, queueable=True),
-                wait_ms("step2Ms"),
-                set_local("elapsed", "step2Ms", op="+="),
+            *step(1),
+            if_("scene2Len", ">", "0", step(2)),
+            if_("whenDone", "==", '"loop"', [
+                if_("maxMs", ">", "0", [if_("elapsed", ">=", "maxMs", [*lights_off(), set_local("done", "1")])]),
+            ], [
+                if_("whenDone", "==", '"off"', lights_off()),
+                set_local("done", "1"),
             ]),
-            if_("loop", "==", '"yes"', [
-                if_("maxMs", ">", "0", [if_("elapsed", ">=", "maxMs", [set_local("done", "1")])]),
-            ], [set_local("done", "1")]),
         ]),
-        str_len("endLen", "/$endButton$/"),
-        if_("ran", "==", "1", [
-            if_("endLen", ">", "0", [trigger_button("/$endButton$/", 0, queueable=True)]),
-        ]),
-    ], group=SEQ_GROUP)
+    ], group=SEQ_GROUP, persistent=True)
 
 
 BUTTONS = [
@@ -959,7 +974,7 @@ BUTTONS = [
                           "Recalling it changes every light in that room/zone, whatever Hue 3 picked."),
                 ]),
             ]],
-            alert("Scene links saved. Check them with Hue: Show Settings, then run 'Example: Hue scene' or 'Example: two-step sequence'."),
+            alert("Scene links saved. Check them with Hue: Show Settings, then run 'Example: Hue scene' or 'Example: scene sequence'."),
         ], [
             popup("Could not list the scenes.\n\nBridge said: /$resp$/\n\n"
                   "'unauthorized user' = run Hue 2: Pair again. Empty = wrong IP or bridge off."),
@@ -986,8 +1001,8 @@ BUTTONS = [
               "then effect (none, breathe with pulses, candle, fire and the others with speed, or stop). "
               "The Hue app cannot put effects in a scene, so SAMMI applies them on top, bulb by bulb.\n"
               "A scene always acts on the lights of its own room/zone, not on the Hue 3 target. Link up to 4 scenes with Hue: Link Scenes.\n"
-              "'Example: two-step sequence' runs one action button, holds, runs another, holds, then loops or ends. "
-              "Chain buttons with triggers for longer sequences. 'Hue: Stop sequence' stops it.\n\n"
+              "'Example: scene sequence' shows up to two linked scenes, each with its own effect and seconds, then loops, "
+              "turns off or stays. Chain buttons with triggers for more. 'Hue: Stop sequence' stops it.\n\n"
               "Lights stopped reacting? Click Hue 1: Discover, then Hue 4: Test.", pause=False),
     ]),
 
@@ -1002,7 +1017,7 @@ BUTTONS = [
     action_button("hueBreathe", "Example:\nbreathe x3", 0.5, TEAL, effect="breathe", pulses=3, y=0.625),
     action_button("hueOff", "Example:\nturn off", 0.75, DARK, look="off", effect="none", y=0.625),
     action_button("hueOn", "Example:\nturn on", 0.0, WARM, look="on", y=0.75),
-    sequence_button("hueSequence", "Example:\ntwo-step sequence", 0.25, 0.75, BLUE),
+    sequence_button("hueSequence", "Example:\nscene sequence", 0.25, 0.75, BLUE, effect2="candle"),
     button("hueStopSequence", "Hue: Stop\nsequence", 0.5, 0.75, GRAY, [
         comment("Stops every running sequence (button group 'hueSeq') and drops queued steps, including action buttons "
                 "waiting in line from other triggers. The lights stay as they are; "

@@ -334,7 +334,7 @@ Settings file: `hue_scenes.ini` in the SAMMI folder, section `[hue]`, keys `ip`,
         176. INI: Save Text hue_scenes.ini [hue] scene_4_light = `/$groupLight$/`
         177. INI: Save Text hue_scenes.ini [hue] scene_4_name = `/$scenes.data[num4].metadata.name$/ in /$groupName$/`
         178. Alert: Scene 4 -> scene '/$scenes.data[num4].metadata.name$/' in /$groupName$/. Recalling it changes every light in that room/zone, whatever Hue 3 picked.
-    179. Alert: Scene links saved. Check them with Hue: Show Settings, then run 'Example: Hue scene' or 'Example: two-step sequence'.
+    179. Alert: Scene links saved. Check them with Hue: Show Settings, then run 'Example: Hue scene' or 'Example: scene sequence'.
     180. Popup (pauses button): Could not list the scenes. /  / Bridge said: /$resp$/ /  / 'unauthorized user' = run Hue 2: Pair again. Empty = wrong IP or bridge off.
 
 ## Hue: Try Action  (`hueTryAction`)
@@ -846,7 +846,7 @@ Settings file: `hue_scenes.ini` in the SAMMI folder, section `[hue]`, keys `ip`,
 
 ## Hue Scenes: how it works  (`hueHelp`)
 
-1. Popup: Hue Scenes /  / Setup once: Hue 1 Discover > Hue 2 Pair (press bridge button) > Hue 3 Pick Target (a bulb, a room or a zone) > Hue 4 Test > Hue: Link Scenes (pick the Hue-app scene the example scene button recalls). / Settings live in the ini file in the SAMMI folder, so they survive restarts. /  / Not sure what your lights can do? 'Hue: Try Action' lists what the Hue 3 target supports (colors, whites, breathe, signals, effects like candle or fire) and sends the one you pick. /  / The bottom rows hold example buttons with no trigger attached. Attach any trigger to them (right-click > Edit Triggers), or copy them to make more. Each has a SETTINGS block at the top (right-click > Edit Commands): look (scene, color, white, on, off, none) with lookValue and brightness, then effect (none, breathe with pulses, candle, fire and the others with speed, or stop). The Hue app cannot put effects in a scene, so SAMMI applies them on top, bulb by bulb. / A scene always acts on the lights of its own room/zone, not on the Hue 3 target. Link up to 4 scenes with Hue: Link Scenes. / 'Example: two-step sequence' runs one action button, holds, runs another, holds, then loops or ends. Chain buttons with triggers for longer sequences. 'Hue: Stop sequence' stops it. /  / Lights stopped reacting? Click Hue 1: Discover, then Hue 4: Test.
+1. Popup: Hue Scenes /  / Setup once: Hue 1 Discover > Hue 2 Pair (press bridge button) > Hue 3 Pick Target (a bulb, a room or a zone) > Hue 4 Test > Hue: Link Scenes (pick the Hue-app scene the example scene button recalls). / Settings live in the ini file in the SAMMI folder, so they survive restarts. /  / Not sure what your lights can do? 'Hue: Try Action' lists what the Hue 3 target supports (colors, whites, breathe, signals, effects like candle or fire) and sends the one you pick. /  / The bottom rows hold example buttons with no trigger attached. Attach any trigger to them (right-click > Edit Triggers), or copy them to make more. Each has a SETTINGS block at the top (right-click > Edit Commands): look (scene, color, white, on, off, none) with lookValue and brightness, then effect (none, breathe with pulses, candle, fire and the others with speed, or stop). The Hue app cannot put effects in a scene, so SAMMI applies them on top, bulb by bulb. / A scene always acts on the lights of its own room/zone, not on the Hue 3 target. Link up to 4 scenes with Hue: Link Scenes. / 'Example: scene sequence' shows up to two linked scenes, each with its own effect and seconds, then loops, turns off or stays. Chain buttons with triggers for more. 'Hue: Stop sequence' stops it. /  / Lights stopped reacting? Click Hue 1: Discover, then Hue 4: Test.
 
 ## Example: Hue scene  (`hueScene1`)
 
@@ -973,52 +973,85 @@ Settings file: `hue_scenes.ini` in the SAMMI folder, section `[hue]`, keys `ip`,
 10. Trigger Button `hueApply` after 0 ms (queueable)
 11. Trigger Button `hueReset` after 10000 ms (OFF)
 
-## Example: two-step sequence  (`hueSequence`)
+## Example: scene sequence  (`hueSequence`)
 
-1. Comment: TWO-STEP SEQUENCE. Attach any trigger (right-click > Edit Triggers). Runs the action button step1Button, waits step1Seconds, runs step2Button, waits step2Seconds, then loops or ends. Starting it stops any other running sequence; 'Hue: Stop sequence' stops it.
-2. Comment: SETTINGS - edit the values below. / step1Button / step2Button: the ID of an action button (right-click a button and click its ID to copy it). Leave step2Button empty for a single step / step1Seconds / step2Seconds: how long to hold that step (1 or more) / loop: yes = repeat until stopped (or maxMinutes), no = run once / maxMinutes: with loop yes, stop after this many minutes; 0 = until stopped / endButton: an action button to run when the sequence ends, e.g. hueOff; empty = none
-3. Set String Variable `step1Button` = `hueScene1`
-4. Set Local Variable `step1Seconds` = `30`
-5. Set String Variable `step2Button` = `hueEffect`
-6. Set Local Variable `step2Seconds` = `30`
-7. Set String Variable `loop` = `yes`
-8. Set Local Variable `maxMinutes` = `0`
-9. Set String Variable `endButton` = ``
-10. Comment: END OF SETTINGS.
-11. Stop Button/Group `hueSeq` (ongoing True, queued True, include self False)
-12. Set Local Variable `step1Ms` = `(step1Seconds * 1000)`
-13. Set Local Variable `step2Ms` = `(step2Seconds * 1000)`
-14. Set Local Variable `maxMs` = `(maxMinutes * 60000)`
-15. String Get Length `step2Len` of `/$step2Button$/`
-16. Set Local Variable `elapsed` = `0`
-17. Set Local Variable `done` = `0`
-18. Set Local Variable `ran` = `0`
-19. If `step1Ms` < `1000`  (block 2, else 0)
-    20. Alert: Hue sequence: step1Seconds must be 1 or more.
-    21. Set Local Variable `done` = `1`
-22. If `step2Len` > `0`  (block 3, else 0)
-    23. If `step2Ms` < `1000`  (block 2, else 0)
-        24. Alert: Hue sequence: step2Seconds must be 1 or more.
-        25. Set Local Variable `done` = `1`
-26. Repeat `100000` times  (block 14)
-    27. Break if `done` == `1`
-    28. Trigger Button `/$step1Button$/` after 0 ms (queueable)
-    29. Set Local Variable `ran` = `1`
-    30. Wait For Timeout step1Ms ms
-    31. Set Local Variable `elapsed` += `step1Ms`
-    32. If `step2Len` > `0`  (block 3, else 0)
-        33. Trigger Button `/$step2Button$/` after 0 ms (queueable)
-        34. Wait For Timeout step2Ms ms
-        35. Set Local Variable `elapsed` += `step2Ms`
-    36. If `loop` == `"yes"`  (block 3, else 1)
-        37. If `maxMs` > `0`  (block 2, else 0)
-            38. If `elapsed` >= `maxMs`  (block 1, else 0)
-                39. Set Local Variable `done` = `1`
-        40. Set Local Variable `done` = `1`
-41. String Get Length `endLen` of `/$endButton$/`
-42. If `ran` == `1`  (block 2, else 0)
-    43. If `endLen` > `0`  (block 1, else 0)
-        44. Trigger Button `/$endButton$/` after 0 ms (queueable)
+1. Comment: SCENE SEQUENCE. Attach any trigger (right-click > Edit Triggers). Shows scene 1 with effect 1 for seconds1, then scene 2 with effect 2 for seconds2, then does whenDone. 'Hue: Stop sequence' stops it.
+2. Comment: SETTINGS - edit the values below. / scene1 / scene2: a scene slot linked with 'Hue: Link Scenes' (1-4). Leave scene2 empty for one scene / effect1 / effect2: none, breathe, candle, fire, prism, sparkle, opal, glisten, underwater, cosmos, sunbeam, enchant, stop / seconds1 / seconds2: how long to hold each scene (1 or more) / whenDone: loop = start again (until stopped or maxMinutes), off = turn the scenes' rooms off, stay = leave as is / maxMinutes: with loop, turn off and stop after this many minutes; 0 = until stopped
+3. Set String Variable `scene1` = `1`
+4. Set String Variable `effect1` = `none`
+5. Set Local Variable `seconds1` = `30`
+6. Set String Variable `scene2` = `2`
+7. Set String Variable `effect2` = `candle`
+8. Set Local Variable `seconds2` = `30`
+9. Set String Variable `whenDone` = `loop`
+10. Set Local Variable `maxMinutes` = `0`
+11. Comment: END OF SETTINGS.
+12. Stop Button/Group `hueSeq` (ongoing True, queued True, include self False)
+13. Set String Variable `brightness` = `100`
+14. Set Local Variable `pulses` = `1`
+15. Set String Variable `speed` = `0.5`
+16. Set Local Variable `ms1` = `(seconds1 * 1000)`
+17. Set Local Variable `ms2` = `(seconds2 * 1000)`
+18. Set Local Variable `maxMs` = `(maxMinutes * 60000)`
+19. String Get Length `scene1Len` of `/$scene1$/`
+20. String Get Length `scene2Len` of `/$scene2$/`
+21. Set Local Variable `elapsed` = `0`
+22. Set Local Variable `done` = `0`
+23. If `scene1Len` == `0`  (block 2, else 0)
+    24. Alert: Hue sequence: set scene1 to a linked slot (1-4).
+    25. Set Local Variable `done` = `1`
+26. If `ms1` < `1000`  (block 2, else 0)
+    27. Alert: Hue sequence: seconds1 must be 1 or more.
+    28. Set Local Variable `done` = `1`
+29. If `scene2Len` > `0`  (block 3, else 0)
+    30. If `ms2` < `1000`  (block 2, else 0)
+        31. Alert: Hue sequence: seconds2 must be 1 or more.
+        32. Set Local Variable `done` = `1`
+33. Repeat `100000` times  (block 44)
+    34. Break if `done` == `1`
+    35. Set String Variable `look` = `scene`
+    36. Set String Variable `lookValue` = `/$scene1$/`
+    37. Set String Variable `effect` = `/$effect1$/`
+    38. Trigger Button `hueApply` after 0 ms (queueable)
+    39. Wait For Timeout ms1 ms
+    40. Set Local Variable `elapsed` += `ms1`
+    41. If `scene2Len` > `0`  (block 6, else 0)
+        42. Set String Variable `look` = `scene`
+        43. Set String Variable `lookValue` = `/$scene2$/`
+        44. Set String Variable `effect` = `/$effect2$/`
+        45. Trigger Button `hueApply` after 0 ms (queueable)
+        46. Wait For Timeout ms2 ms
+        47. Set Local Variable `elapsed` += `ms2`
+    48. If `whenDone` == `"loop"`  (block 15, else 14)
+        49. If `maxMs` > `0`  (block 14, else 0)
+            50. If `elapsed` >= `maxMs`  (block 13, else 0)
+                51. If `scene1Len` > `0`  (block 5, else 0)
+                    52. Set String Variable `look` = `off`
+                    53. Set String Variable `lookValue` = `/$scene1$/`
+                    54. Set String Variable `effect` = `none`
+                    55. Trigger Button `hueApply` after 0 ms (queueable)
+                    56. Wait For Timeout 1200 ms
+                57. If `scene2Len` > `0`  (block 5, else 0)
+                    58. Set String Variable `look` = `off`
+                    59. Set String Variable `lookValue` = `/$scene2$/`
+                    60. Set String Variable `effect` = `none`
+                    61. Trigger Button `hueApply` after 0 ms (queueable)
+                    62. Wait For Timeout 1200 ms
+                63. Set Local Variable `done` = `1`
+        64. If `whenDone` == `"off"`  (block 12, else 0)
+            65. If `scene1Len` > `0`  (block 5, else 0)
+                66. Set String Variable `look` = `off`
+                67. Set String Variable `lookValue` = `/$scene1$/`
+                68. Set String Variable `effect` = `none`
+                69. Trigger Button `hueApply` after 0 ms (queueable)
+                70. Wait For Timeout 1200 ms
+            71. If `scene2Len` > `0`  (block 5, else 0)
+                72. Set String Variable `look` = `off`
+                73. Set String Variable `lookValue` = `/$scene2$/`
+                74. Set String Variable `effect` = `none`
+                75. Trigger Button `hueApply` after 0 ms (queueable)
+                76. Wait For Timeout 1200 ms
+        77. Set Local Variable `done` = `1`
 
 ## Hue: Stop sequence  (`hueStopSequence`)
 
