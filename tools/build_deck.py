@@ -96,6 +96,10 @@ def repeat(count, body):
     return Block(cmd(9, b0=count), body)
 
 
+def trigger_pull(save, key):            return cmd(66, b0=save, b1=key)
+def get_button_var(bid, name, save):   return cmd(162, b0=bid, b1=name, b2=save)
+
+
 def break_if(left, op, right):
     """Break (11): leaves the enclosing Repeat when the condition holds. Same boxes as If."""
     return cmd(11, b0=left, b1=op, b2=right, v0=0.0)
@@ -237,8 +241,19 @@ def action_settings(look, look_value, brightness, effect, pulses, speed):
         set_local("pulses", str(pulses)),
         set_string("speed", str(speed)),
         comment("END OF SETTINGS.", 2),
-        set_string("fadeMs", FADE_MS),
     ]
+
+
+SETTING_NAMES = ["look", "lookValue", "brightness", "effect", "pulses", "speed"]
+APPLY_ID = "hueApply"
+
+
+def if_real_id(var, then, else_=()):
+    """Runs `then` when `var` holds a Hue id (36 characters) rather than a placeholder (0, none, empty)."""
+    return [str_len(f"{var}Len", f"/${var}$/"), if_(f"{var}Len", ">", "30", then, else_)]
+
+
+EFFECT_NAMES = [e.strip() for e in EFFECTS.split(",")]
 
 
 def resolve_color():
@@ -258,26 +273,31 @@ def do_look():
     return [
         set_string("resp", ""),
         set_local("known", "0"),
+        set_local("lookOk", "1"),
+        set_local("groupSent", "0"),
         if_("look", "==", '"scene"', [
             set_local("known", "1"),
             ini_load("scene_/$lookValue$/", "hueSceneId"),
-            if_("hueSceneId", "==", "0", [alert("Hue: no scene linked for slot /$lookValue$/. Run 'Hue: Link Scenes' first.")],
-                send(RECALL)),
+            *if_real_id("hueSceneId", [*send(RECALL), set_local("groupSent", "1")], [
+                alert("Hue: no scene linked for slot /$lookValue$/. Run 'Hue: Link Scenes' first."),
+                set_local("lookOk", "0"),
+            ]),
         ]),
-        if_("look", "==", '"color"', [set_local("known", "1"), *resolve_color(), *send(put_light_vars(COLOR_BODY))]),
-        if_("look", "==", '"white"', [set_local("known", "1"), *resolve_white(), *send(put_light_vars(WHITE_BODY))]),
-        if_("look", "==", '"on"', [set_local("known", "1"), *send(put_light_vars(ON_BODY))]),
+        if_("look", "==", '"color"', [set_local("known", "1"), *resolve_color(), *send(put_light_vars(COLOR_BODY)), set_local("groupSent", "1")]),
+        if_("look", "==", '"white"', [set_local("known", "1"), *resolve_white(), *send(put_light_vars(WHITE_BODY)), set_local("groupSent", "1")]),
+        if_("look", "==", '"on"', [set_local("known", "1"), *send(put_light_vars(ON_BODY)), set_local("groupSent", "1")]),
         if_("look", "==", '"off"', [
             set_local("known", "1"),
             str_len("lvLen", "/$lookValue$/"),
             if_("lvLen", ">", "0", [
                 ini_load("scene_/$lookValue$/_light", "offLight"),
-                if_("offLight", "!=", "0", [set_string("hueLightType", "grouped_light"), set_string("hueLightId", "/$offLight$/")]),
+                *if_real_id("offLight", [set_string("hueLightType", "grouped_light"), set_string("hueLightId", "/$offLight$/")]),
             ]),
             *send(OFF),
+            set_local("groupSent", "1"),
         ]),
         if_("look", "==", '"none"', [set_local("known", "1")]),
-        if_("known", "==", "0", [alert(f"Hue: unknown look '/$look$/'. Use one of: {LOOKS}.")]),
+        if_("known", "==", "0", [alert(f"Hue: unknown look '/$look$/'. Use one of: {LOOKS}."), set_local("lookOk", "0")]),
         str_pos("errPos", "/$resp$/", '"description"'),
         if_("errPos", ">", "0", [alert("Hue rejected the look: /$resp$/")]),
     ]
@@ -294,13 +314,18 @@ def bulbs_of_scene():
             set_string("rid", "/$sc.data[0].actions[i].target.rid$/"),
             set_string("cx", "/$sc.data[0].actions[i].action.color.xy.x$/"),
             set_string("cy", "/$sc.data[0].actions[i].action.color.xy.y$/"),
-            # A bulb set to a white in the scene has no xy; keep it only if it looks like a number.
-            str_to_num("cxNum", "cx"),
-            if_("cxNum", "<=", "0", [set_string("cx", ""), set_string("cy", "")]),
-            set_string("ids", '/$sep$/"/$rid$/"', rel=True),
-            set_string("xs", '/$sep$/"/$cx$/"', rel=True),
-            set_string("ys", '/$sep$/"/$cy$/"', rel=True),
-            set_string("sep", ","),
+            # A bulb set to a white in the scene has no xy: keep the color only if it is a decimal number.
+            str_pos("cxDot", "/$cx$/", "."),
+            if_("cxDot", "<=", "0", [set_string("cx", ""), set_string("cy", "")]),
+            # A bulb the scene leaves off stays off: no effect for it.
+            set_string("onState", "/$sc.data[0].actions[i].action.on.on$/"),
+            str_pos("isOff", "/$onState$/", "false"),
+            if_("isOff", "<=", "0", [
+                set_string("ids", '/$sep$/"/$rid$/"', rel=True),
+                set_string("xs", '/$sep$/"/$cx$/"', rel=True),
+                set_string("ys", '/$sep$/"/$cy$/"', rel=True),
+                set_string("sep", ","),
+            ]),
             set_local("i", "1", op="+="),
         ]),
     ]
@@ -347,15 +372,16 @@ def bulbs_of_target():
     ]
 
 
-FX_COLOR = {"effects_v2": {"action": {"effect": "/$effect$/", "parameters": {
+FX_COLOR = {"on": {"on": True}, "effects_v2": {"action": {"effect": "/$effect$/", "parameters": {
     "speed": "@speed@", "color": {"xy": {"x": "@fx@", "y": "@fy@"}}}}}}
-FX_PLAIN = {"effects_v2": {"action": {"effect": "/$effect$/", "parameters": {"speed": "@speed@"}}}}
-FX_V1 = {"effects": {"effect": "/$effect$/"}}
+FX_PLAIN = {"on": {"on": True}, "effects_v2": {"action": {"effect": "/$effect$/", "parameters": {"speed": "@speed@"}}}}
+FX_V1 = {"on": {"on": True}, "effects": {"effect": "/$effect$/"}}
 
 
 def do_effect():
     """Applies `effect` after the look. breathe is an alert on the scene's room or the target; the
-    others are set bulb by bulb, because Hue has effects on bulbs only."""
+    others are set bulb by bulb, because Hue has effects on bulbs only. Bulbs that cannot run effects
+    (plugs, white-only bulbs) are skipped quietly; the button alerts only when no bulb took the effect."""
     per_bulb = [
         set_string("ids", ""), set_string("xs", ""), set_string("ys", ""), set_string("sep", ""),
         set_string("fxColorX", ""), set_string("fxColorY", ""),
@@ -366,8 +392,11 @@ def do_effect():
         parse("fxYs", "[/$ys$/]"),
         arr_size("fxIds", "nFx"),
         set_string("hueLightType", "light"),
+        set_local("fxOk", "0"),
+        set_string("fxLastErr", ""),
         set_local("i", "0"),
         repeat("nFx", [
+            if_("i", ">", "0", [wait_ms("150")]),                    # keep a room's bulbs under ~10 commands/s
             set_string("hueLightId", "/$fxIds[i]$/"),
             set_string("fx", "/$fxXs[i]$/"),
             set_string("fy", "/$fxYs[i]$/"),
@@ -378,27 +407,46 @@ def do_effect():
                 if_("errPos", ">", "0", send(put_light_vars(FX_V1))),   # older bulb firmware: no speed or color
             ]),
             str_pos("errPos", "/$resp$/", '"description"'),
-            if_("errPos", ">", "0", [alert("Hue rejected the effect on bulb /$hueLightId$/: /$resp$/")]),
+            if_("errPos", ">", "0", [set_string("fxLastErr", "/$resp$/")], [set_local("fxOk", "1", op="+=")]),
             set_local("i", "1", op="+="),
         ]),
-        if_("nFx", "==", "0", [alert("Hue: found no bulbs for the effect. Run Hue 3: Pick Target again, then try once more.")]),
+        if_("effect", "!=", '"stop"', [
+            if_("nFx", "==", "0", [alert("Hue: found no bulbs for the effect. Run Hue 3: Pick Target again, then try once more.")], [
+                if_("fxOk", "==", "0", [alert("Hue: no bulb accepted the effect '/$effect$/'. Bridge said: /$fxLastErr$/")]),
+            ]),
+        ]),
     ]
+    known = [if_("effect", "==", f'"{e}"', [set_local("fxKnown", "1")]) for e in ["none", "breathe", "stop", *EFFECT_NAMES]]
     return [
-        if_("effect", "==", '"none"', [], [
-            *LOAD_ALL(),
-            if_("effect", "==", '"breathe"', [
-                if_("look", "==", '"scene"', [
-                    ini_load("scene_/$lookValue$/_light", "offLight"),
-                    if_("offLight", "!=", "0", [set_string("hueLightType", "grouped_light"), set_string("hueLightId", "/$offLight$/")]),
+        set_local("fxKnown", "0"),
+        *known,
+        if_("fxKnown", "==", "0", [alert(f"Hue: unknown effect '/$effect$/'. Use one of: {EFFECT_CHOICES}.")]),
+        if_("look", "==", '"off"', [
+            if_("effect", "!=", '"none"', [
+                if_("effect", "!=", '"stop"', [alert("Hue: look off with an effect would turn the lights back on, so the effect was skipped."),
+                                               set_local("fxKnown", "0")]),
+            ]),
+        ]),
+        if_("lookOk", "==", "1", [
+            if_("fxKnown", "==", "1", [
+                if_("effect", "!=", '"none"', [
+                    *LOAD_ALL(),
+                    if_("effect", "==", '"breathe"', [
+                        if_("look", "==", '"scene"', [
+                            ini_load("scene_/$lookValue$/_light", "offLight"),
+                            *if_real_id("offLight", [set_string("hueLightType", "grouped_light"), set_string("hueLightId", "/$offLight$/")]),
+                        ]),
+                        if_("groupSent", "==", "1", [wait_ms("1000")]),   # the look just went to this group: 1 command/s
+                        if_("pulses", "<", "1", [set_local("pulses", "1")]),
+                        set_local("bt", "0"),
+                        repeat("pulses", [
+                            if_("bt", ">", "0", [wait_ms("2000")]),
+                            *send(BREATHE),
+                            set_local("bt", "1", op="+="),
+                        ]),
+                    ], per_bulb),
                 ]),
-                if_("pulses", "<", "1", [set_local("pulses", "1")]),
-                set_local("bt", "0"),
-                repeat("pulses", [
-                    if_("bt", ">", "0", [wait_ms("2000")]),
-                    *send(BREATHE),
-                    set_local("bt", "1", op="+="),
-                ]),
-            ], per_bulb),
+            ]),
         ]),
     ]
 
@@ -520,19 +568,41 @@ STARTUP_TRIGGER = {"trg": 10.0, "type": "SAMMI Startup", "group_id": ""}
 
 
 def action_button(bid, text, x, color, *, look="none", look_value="", brightness=100, effect="none",
-                  pulses=1, speed="0.5", y=0.5):
-    """An action button with no trigger of its own. The user attaches whatever SAMMI trigger they
-    like (right-click > Edit Triggers): a chat command, a redeem, a tip alert, a hotkey, a timer."""
+                  pulses=1, speed="0.5", y=0.5, reset_hook=True):
+    """An action button: its settings, then a call to the shared 'hueApply' button, which reads these
+    settings back (Get Button Variable needs this button's variables to persist) and does the work.
+    The user attaches any SAMMI trigger (right-click > Edit Triggers)."""
+    hook = [trigger_button("hueReset", 10000, disabled=True)] if reset_hook else []   # optional 10 s auto-reset
     return button(bid, text, x, y, color, [
         comment("ACTION BUTTON. Attach any trigger to it: right-click the button > Edit Triggers. "
-                "When it fires it sets the look, then the effect, then holds the button 1 s so bursts of events stay "
-                "under Hue's rate limit (1 command/s for rooms, zones and scenes). Events that arrive meanwhile queue up.", 1),
+                "It hands its settings to 'Hue: apply (shared)', which sets the look, then the effect. "
+                "Do not turn off 'Persistent Variables' on this button: the shared button reads the settings from it.", 1),
         *action_settings(look, look_value, brightness, effect, pulses, speed),
-        *LOAD_ALL(),
-        *do_look(),
-        *do_effect(),
-        overtime(1000),
-        trigger_button("hueReset", 10000, disabled=True),   # optional: turn "Off" to enable the 10 s auto-reset
+        trigger_button(APPLY_ID, 0, queueable=True),
+        *hook,
+    ], persistent=True)
+
+
+def apply_button():
+    """The one implementation of look + effect. Started by Trigger Button from an action button; reads
+    that button's settings, so queued runs from a burst each use their own caller's settings."""
+    return button(APPLY_ID, "Hue: apply\n(shared)", 0.75, 0.25, DARK, [
+        comment("SHARED. Do not attach triggers or edit this button. Every action button calls it with Trigger Button; "
+                "it reads the caller's settings, sets the look, then the effect, then holds 1 s so bursts stay under "
+                "Hue's rate limit (1 command/s for rooms, zones and scenes). Calls that arrive meanwhile queue up.", 2),
+        trigger_pull("origin", "button_id"),
+        str_len("originLen", "/$origin$/"),
+        if_("originLen", "==", "0", [set_string("origin", APPLY_ID)]),
+        if_("origin", "==", f'"{APPLY_ID}"', [
+            alert("Hue: 'Hue: apply (shared)' runs when an action button calls it. Press an action button instead."),
+        ], [
+            *[get_button_var("/$origin$/", v, v) for v in SETTING_NAMES],
+            set_string("fadeMs", FADE_MS),
+            *LOAD_ALL(),
+            *do_look(),
+            *do_effect(),
+            overtime(1000),
+        ]),
     ], queueable=True)
 
 
@@ -665,10 +735,15 @@ def sequence_button(bid, text, x, y, color, *, step1="hueScene1", step1_seconds=
         str_len("step2Len", "/$step2Button$/"),
         set_local("elapsed", "0"),
         set_local("done", "0"),
+        set_local("ran", "0"),
         if_("step1Ms", "<", "1000", [alert("Hue sequence: step1Seconds must be 1 or more."), set_local("done", "1")]),
+        if_("step2Len", ">", "0", [
+            if_("step2Ms", "<", "1000", [alert("Hue sequence: step2Seconds must be 1 or more."), set_local("done", "1")]),
+        ]),
         repeat("100000", [
             break_if("done", "==", "1"),
             trigger_button("/$step1Button$/", 0, queueable=True),
+            set_local("ran", "1"),
             wait_ms("step1Ms"),
             set_local("elapsed", "step1Ms", op="+="),
             if_("step2Len", ">", "0", [
@@ -681,7 +756,9 @@ def sequence_button(bid, text, x, y, color, *, step1="hueScene1", step1_seconds=
             ], [set_local("done", "1")]),
         ]),
         str_len("endLen", "/$endButton$/"),
-        if_("endLen", ">", "0", [trigger_button("/$endButton$/", 0, queueable=True)]),
+        if_("ran", "==", "1", [
+            if_("endLen", ">", "0", [trigger_button("/$endButton$/", 0, queueable=True)]),
+        ]),
     ], group=SEQ_GROUP)
 
 
@@ -757,10 +834,13 @@ BUTTONS = [
             wait_input("A Notepad window just opened listing every bulb, room and zone (file hue_scenes_list.txt in the SAMMI folder).\n\n"
                        "Type the NUMBER the action buttons should control, then click OK.", "0", "pick"),
             str_to_num("pickNum", "pick"),
-            set_local("kind", "0"),
+            set_local("kind", "9"),                       # 9 = not on the list; also what a non-number stays
             set_local("idx", "pickNum"),
+            if_("pickNum", ">=", "0", [set_local("kind", "0")]),
             if_("pickNum", ">=", "nL", [set_local("kind", "1"), set_local("idx", "(pickNum - nL)")]),
             if_("pickNum", ">=", "(nL + nR)", [set_local("kind", "2"), set_local("idx", "(pickNum - nL - nR)")]),
+            if_("pickNum", ">=", "(nL + nR + nZ)", [set_local("kind", "9")]),
+            if_("kind", "==", "9", [alert("Hue: '/$pick$/' is not on the list. Nothing was changed; run Hue 3 again.")]),
             if_("kind", "==", "0", [
                 ini_save("light", "/$lights.data[idx].id$/"),
                 ini_save("light_type", "light"),
@@ -782,8 +862,10 @@ BUTTONS = [
                 ini_save("group_id", "/$zones.data[idx].id$/"),
                 ini_save("group_kind", "zone"),
             ]),
-            ini_load("light_name", "hueLightName"),
-            alert("Action buttons will control '/$hueLightName$/' (saved to the ini file)"),
+            if_("kind", "!=", "9", [
+                ini_load("light_name", "hueLightName"),
+                alert("Action buttons will control '/$hueLightName$/' (saved to the ini file)"),
+            ]),
         ], [
             popup("Could not list the lights.\n\nBridge said: /$resp$/\n\n"
                   "'unauthorized user' = run Hue 2: Pair again. Empty = wrong IP or bridge off."),
@@ -866,6 +948,8 @@ BUTTONS = [
                            "A scene changes the lights of ITS room/zone, so pick one from the group marked as your target.\n\n"
                            f"Which scene should **{label}** recall? Type its NUMBER, or -1 to leave this one unchanged.", "-1", f"pick_{slot}"),
                 str_to_num(f"num{slot}", f"pick_{slot}"),
+                if_(f"num{slot}", ">=", "n", [alert(f"Hue: /$pick_{slot}$/ is not on the list; {label} was left unchanged."),
+                                               set_local(f"num{slot}", "-1")]),
                 if_(f"num{slot}", ">=", "0", [
                     *scene_group_name(f"num{slot}", "groupName", "groupLight"),
                     ini_save(f"scene_{slot}", f"/$scenes.data[num{slot}].id$/"),
@@ -882,6 +966,7 @@ BUTTONS = [
         ]),
     ]),
     button("hueTryAction", "Hue: Try\nAction", 0.5, 0.25, TEAL, try_action()),
+    apply_button(),
     button("hueStartup", "Hue: Auto\nrediscover", 0.0, 0.25, DARK, [
         comment("Runs by itself when SAMMI starts (SAMMI Startup trigger). Waits 15 s for the network, then refreshes the "
                 "bridge IP in case the router handed out a new one. Safe to leave alone.", 2),
@@ -909,14 +994,8 @@ BUTTONS = [
     # --- rows 4-6: example buttons (no triggers shipped) ------------------------------------------------------
     action_button("hueScene1", "Example:\nHue scene", 0.0, TEAL, look="scene", look_value="1"),
     action_button("hueColorRed", "Example:\ncolor (red)", 0.25, RED, look="color", look_value="red"),
-    button("hueReset", "Reset\n(optional)", 0.5, 0.5, GRAY, [
-        comment("Restores neutral white and stops effects. Not triggered by anything unless you enable the disabled "
-                "'Trigger Button' command at the end of each action button (10 s delay).", 1),
-        *action_settings("white", "neutral", 60, "stop", 1, "0.5"),
-        *LOAD_ALL(),
-        *do_look(),
-        *do_effect(),
-    ]),
+    action_button("hueReset", "Reset\n(optional)", 0.5, GRAY, look="white", look_value="neutral", brightness=60,
+                  effect="stop", reset_hook=False),
     action_button("hueEffect", "Example:\neffect (candle)", 0.75, WARM, effect="candle"),
     action_button("hueSceneCandle", "Example:\nscene + candle", 0.0, TEAL, look="scene", look_value="1", effect="candle", y=0.625),
     action_button("hueColorFire", "Example:\norange + fire", 0.25, RED, look="color", look_value="orange", effect="fire", y=0.625),
@@ -925,9 +1004,11 @@ BUTTONS = [
     action_button("hueOn", "Example:\nturn on", 0.0, WARM, look="on", y=0.75),
     sequence_button("hueSequence", "Example:\ntwo-step sequence", 0.25, 0.75, BLUE),
     button("hueStopSequence", "Hue: Stop\nsequence", 0.5, 0.75, GRAY, [
-        comment("Stops every running sequence (button group 'hueSeq'). The lights stay as they are; "
+        comment("Stops every running sequence (button group 'hueSeq') and drops queued steps, including action buttons "
+                "waiting in line from other triggers. The lights stay as they are; "
                 "add an 'Example: turn off' trigger after it if you want them off.", 1),
         stop_button(SEQ_GROUP, ongoing=True, queued=True, include_self=False),
+        stop_button(APPLY_ID, ongoing=False, queued=True, include_self=False),   # drop steps still waiting in line
         alert("Hue: sequence stopped."),
     ]),
 ]
@@ -940,7 +1021,8 @@ NAMES = {83: "String Get Length", 255: "File: Append Text", 227: "File: Delete F
          153: "Wait Until Variable Exists", 190: "Wait For Timeout", 168: "Parse Array/Object", 15: "Set Local Variable",
          20: "Set String Variable", 91: "String Position", 126: "INI: Save Text", 127: "INI: Load Text",
          214: "Wait For User Input", 79: "String to Number", 100: "Array Get Size", 137: "Overtime",
-         169: "HTTP Request", 132: "Trigger Button", 7: "If", 9: "Repeat", 11: "Break", 133: "Stop Button/Group"}
+         169: "HTTP Request", 132: "Trigger Button", 7: "If", 9: "Repeat", 11: "Break", 133: "Stop Button/Group",
+         66: "Trigger Pull Data", 162: "Get Button Variable"}
 
 
 def describe(c):
@@ -968,10 +1050,12 @@ def describe(c):
     if i == 100: return f"Array Get Size `{b(0)}` -> `{b(1)}`"
     if i == 137: return f"Overtime {b(0)} ms"
     if i == 169: return f"HTTP Request {b(1)} {b(0)} -> `{b(4)}`"
-    if i == 132: return f"Trigger Button `{b(0)}` after {b(1)} ms"
+    if i == 132: return f"Trigger Button `{b(0)}` after {b(1)} ms{' (queueable)' if c.get('v0') else ''}"
     if i == 7:   return f"If `{b(0)}` {b(1)} `{b(2)}`  (block {int(c['v0'])}, else {int(c.get('v1', 0))})"
     if i == 9:   return f"Repeat `{b(0)}` times  (block {int(c['v0'])})"
     if i == 11:  return f"Break if `{b(0)}` {b(1)} `{b(2)}`"
+    if i == 66:  return f"Trigger Pull Data `{b(1)}` -> `{b(0)}`"
+    if i == 162: return f"Get Button Variable `{b(1)}` from button `{b(0)}` -> `{b(2)}`"
     if i == 133: return f"Stop Button/Group `{b(0)}` (ongoing {bool(c.get('v0'))}, queued {bool(c.get('v1'))}, include self {bool(c.get('v2'))})"
     return f"cmd {i}"
 
@@ -1041,6 +1125,10 @@ def main():
     inject_readme(deck_json)
     ids = [b["button_id"] for b in BUTTONS]
     assert len(ids) == len(set(ids)), "duplicate button ids"
+    from audit_deck import audit                     # tools/audit_deck.py
+    problems = audit(wrapper)
+    if problems:
+        raise SystemExit("deck audit failed:\n" + "\n".join(problems))
     print(f"wrote {OUT_DIR/'HueScenes.deck.json'} ({len(BUTTONS)} buttons, "
           f"{sum(len(b['command_list']) for b in BUTTONS)} commands)")
 
