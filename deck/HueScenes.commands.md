@@ -326,7 +326,7 @@ Settings file: `hue_scenes.ini` in the SAMMI folder, section `[hue]`, keys `ip`,
 7. Command Line: `curl.exe -sk -m 8 "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/"` -> save as `resp`
 8. Wait Until Variable Exists `resp` (timeout 10000 ms)
 9. String Position `okPos` = position of `"data"` in `/$resp$/`
-10. If `okPos` > `0`  (block 181, else 1)
+10. If `okPos` > `0`  (block 187, else 1)
     11. Parse Array/Object `t` from `/$resp$/`
     12. Set String Variable `list` = `0 = color: red / 1 = color: orange / 2 = color: yellow / 3 = color: green / 4 = color: cyan / 5 = color: blue / 6 = color: purple / 7 = color: pink / 8 = white: warm white / 9 = white: neutral white / 10 = white: cool white / 11 = turn on / 12 = turn off / `
     13. Set Local Variable `k` = `13`
@@ -464,51 +464,57 @@ Settings file: `hue_scenes.ini` in the SAMMI folder, section `[hue]`, keys `ip`,
         145. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"alert\":{\"action\":\"/$val$/\"}}"` -> save as `resp`
         146. Wait Until Variable Exists `resp` (timeout 10000 ms)
         147. Set String Variable `hint` = `colorMode 5, signal breathe`
-    148. If `kind` == `2`  (block 22, else 0)
+    148. If `kind` == `2`  (block 28, else 0)
         149. Set String Variable `signal` = `/$t.data[0].signaling.signal_values[idx]$/`
         150. Set String Variable `signalMs` = `8000`
-        151. Set String Variable `colorX` = `0.6915`
-        152. Set String Variable `colorY` = `0.3083`
-        153. Set String Variable `colorX2` = `0.1532`
-        154. Set String Variable `colorY2` = `0.0475`
-        155. If `signal` == `"breathe"`  (block 3, else 11)
-            156. Delete Variable `resp`
-            157. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"alert\":{\"action\":\"breathe\"}}"` -> save as `resp`
-            158. Wait Until Variable Exists `resp` (timeout 10000 ms)
-            159. If `signal` == `"on_off_color"`  (block 3, else 7)
-                160. Delete Variable `resp`
-                161. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/,\"colors\":[{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}}]}}"` -> save as `resp`
-                162. Wait Until Variable Exists `resp` (timeout 10000 ms)
-                163. If `signal` == `"alternating"`  (block 3, else 3)
-                    164. Delete Variable `resp`
-                    165. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/,\"colors\":[{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}},{\"xy\":{\"x\":/$colorX2$/,\"y\":/$colorY2$/}}]}}"` -> save as `resp`
-                    166. Wait Until Variable Exists `resp` (timeout 10000 ms)
-                    167. Delete Variable `resp`
-                    168. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/}}"` -> save as `resp`
-                    169. Wait Until Variable Exists `resp` (timeout 10000 ms)
-        170. Set String Variable `hint` = `colorMode 5, signal /$signal$/ (8 s here; on_off_color uses red, alternating red and blue)`
-    171. If `kind` == `3`  (block 5, else 0)
-        172. Set String Variable `val` = `/$t.data[0].effects.effect_values[idx]$/`
-        173. Delete Variable `resp`
-        174. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"effects\":{\"effect\":\"/$val$/\"}}"` -> save as `resp`
-        175. Wait Until Variable Exists `resp` (timeout 10000 ms)
-        176. Set String Variable `hint` = `colorMode 4, effect /$val$/ (it keeps running until another action or no_effect)`
-    177. If `kind` == `4`  (block 5, else 0)
-        178. Set String Variable `val` = `/$t.data[0].timed_effects.effect_values[idx]$/`
+        151. Set Local Variable `breatheTimes` = `1`
+        152. Set String Variable `colorX` = `0.6915`
+        153. Set String Variable `colorY` = `0.3083`
+        154. Set String Variable `colorX2` = `0.1532`
+        155. Set String Variable `colorY2` = `0.0475`
+        156. If `signal` == `"breathe"`  (block 8, else 11)
+            157. Set Local Variable `bt` = `0`
+            158. Repeat `breatheTimes` times  (block 6)
+                159. If `bt` > `0`  (block 1, else 0)
+                    160. Wait For Timeout 2000 ms
+                161. Delete Variable `resp`
+                162. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"alert\":{\"action\":\"breathe\"}}"` -> save as `resp`
+                163. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                164. Set Local Variable `bt` += `1`
+            165. If `signal` == `"on_off_color"`  (block 3, else 7)
+                166. Delete Variable `resp`
+                167. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/,\"colors\":[{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}}]}}"` -> save as `resp`
+                168. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                169. If `signal` == `"alternating"`  (block 3, else 3)
+                    170. Delete Variable `resp`
+                    171. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/,\"colors\":[{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}},{\"xy\":{\"x\":/$colorX2$/,\"y\":/$colorY2$/}}]}}"` -> save as `resp`
+                    172. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                    173. Delete Variable `resp`
+                    174. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/}}"` -> save as `resp`
+                    175. Wait Until Variable Exists `resp` (timeout 10000 ms)
+        176. Set String Variable `hint` = `colorMode 5, signal /$signal$/ (8 s here; on_off_color uses red, alternating red and blue)`
+    177. If `kind` == `3`  (block 5, else 0)
+        178. Set String Variable `val` = `/$t.data[0].effects.effect_values[idx]$/`
         179. Delete Variable `resp`
-        180. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"timed_effects\":{\"effect\":\"/$val$/\",\"duration\":60000}}"` -> save as `resp`
+        180. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"effects\":{\"effect\":\"/$val$/\"}}"` -> save as `resp`
         181. Wait Until Variable Exists `resp` (timeout 10000 ms)
-        182. Set String Variable `hint` = `a timed effect (1 minute here); action buttons do not have a mode for it yet`
-    183. String Get Length `respLen` of `/$resp$/`
-    184. If `respLen` == `0`  (block 1, else 0)
-        185. Alert: Hue: no reply from the bridge (bridge off or wrong IP). Run Hue 1: Discover, then Hue 4: Test.
-    186. String Position `errPos` = position of `"description"` in `/$resp$/`
-    187. If `errPos` > `0`  (block 1, else 0)
-        188. Alert: Hue rejected the request: /$resp$/
-    189. String Get Length `hintLen` of `/$hint$/`
-    190. If `hintLen` > `0`  (block 1, else 0)
-        191. Alert: Sent. To put this on an action button, copy an Example button and set: /$hint$/
-    192. Popup (pauses button): Could not read the target. /  / Bridge said: /$resp$/ /  / Run Hue 3: Pick Target first. 'unauthorized user' = run Hue 2: Pair again.
+        182. Set String Variable `hint` = `colorMode 4, effect /$val$/ (it keeps running until another action or no_effect)`
+    183. If `kind` == `4`  (block 5, else 0)
+        184. Set String Variable `val` = `/$t.data[0].timed_effects.effect_values[idx]$/`
+        185. Delete Variable `resp`
+        186. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"timed_effects\":{\"effect\":\"/$val$/\",\"duration\":60000}}"` -> save as `resp`
+        187. Wait Until Variable Exists `resp` (timeout 10000 ms)
+        188. Set String Variable `hint` = `a timed effect (1 minute here); action buttons do not have a mode for it yet`
+    189. String Get Length `respLen` of `/$resp$/`
+    190. If `respLen` == `0`  (block 1, else 0)
+        191. Alert: Hue: no reply from the bridge (bridge off or wrong IP). Run Hue 1: Discover, then Hue 4: Test.
+    192. String Position `errPos` = position of `"description"` in `/$resp$/`
+    193. If `errPos` > `0`  (block 1, else 0)
+        194. Alert: Hue rejected the request: /$resp$/
+    195. String Get Length `hintLen` of `/$hint$/`
+    196. If `hintLen` > `0`  (block 1, else 0)
+        197. Alert: Sent. To put this on an action button, copy an Example button and set: /$hint$/
+    198. Popup (pauses button): Could not read the target. /  / Bridge said: /$resp$/ /  / Run Hue 3: Pick Target first. 'unauthorized user' = run Hue 2: Pair again.
 
 ## Hue: Auto rediscover  (`hueStartup`)
 - Trigger: SAMMI Trigger, SAMMI Startup
@@ -533,7 +539,7 @@ Settings file: `hue_scenes.ini` in the SAMMI folder, section `[hue]`, keys `ip`,
 - Setting: Allow Queue on
 
 1. Comment: ACTION BUTTON. Attach any trigger to it: right-click the button > Edit Triggers. When it fires it reads the bridge settings from the ini file, sends one request to the bridge, then holds the button 1 s so bursts of events stay under Hue's rate limit (1 command/s for rooms, zones and scenes). Events that arrive meanwhile queue up and run in order.
-2. Comment: SETTINGS - edit the values below, nothing else needs to change. / colorMode: 3 = recall a Hue scene (colors are edited in the Hue app; link scenes with 'Hue: Link Scenes'), 1 = fixed color (uses colorX/colorY), 2 = fixed white temperature (uses whiteMirek), 4 = light effect (uses effect), 5 = signal (uses signal), 6 = turn the light(s) off / sceneSlot: which linked scene this button recalls in mode 3 (1-4, the slots 'Hue: Link Scenes' fills) / brightness: 1-100 (modes 1 and 2 only) / colorX / colorY: CIE xy color, 0-1 each (red 0.6915/0.3083, green 0.17/0.7, blue 0.1532/0.0475, purple 0.2725/0.1096, orange 0.6/0.38, pink 0.45/0.25) / whiteMirek: 153 (cool daylight) to 500 (very warm); 370 = warm white, 250 = neutral / fadeMs: how long the bulb takes to change, in milliseconds (modes 1 and 2) / effect (mode 4): candle, fire, prism, sparkle, opal, glisten, underwater, cosmos, sunbeam, enchant, or no_effect to stop one. Bulbs only, not rooms or zones; run 'Hue: Try Action' to see what yours support / signal (mode 5): breathe (one pulse), on_off (blinks), on_off_color (blinks colorX/colorY), alternating (alternates colorX/colorY and colorX2/colorY2); signalMs = how long, in milliseconds
+2. Comment: SETTINGS - edit the values below, nothing else needs to change. / colorMode: 3 = recall a Hue scene (colors are edited in the Hue app; link scenes with 'Hue: Link Scenes'), 1 = fixed color (uses colorX/colorY), 2 = fixed white temperature (uses whiteMirek), 4 = light effect (uses effect), 5 = signal (uses signal), 6 = turn the light(s) off / sceneSlot: which linked scene this button recalls in mode 3 (1-4, the slots 'Hue: Link Scenes' fills) / brightness: 1-100 (modes 1, 2 and 4) / colorX / colorY: CIE xy color, 0-1 each (red 0.6915/0.3083, green 0.17/0.7, blue 0.1532/0.0475, purple 0.2725/0.1096, orange 0.6/0.38, pink 0.45/0.25) / whiteMirek: 153 (cool daylight) to 500 (very warm); 370 = warm white, 250 = neutral / fadeMs: how long the bulb takes to change, in milliseconds (modes 1 and 2) / effect (mode 4): candle, fire, prism, sparkle, opal, glisten, underwater, cosmos, sunbeam, enchant, or no_effect to stop one. Bulbs only, not rooms or zones; run 'Hue: Try Action' to see what yours support / effectSpeed (mode 4): 0 (slowest) to 1 (fastest) / effectColor (mode 4): 1 = tint the effect with colorX/colorY, 0 = the effect's own colors / signal (mode 5): breathe (one pulse; Hue gives it no speed or color), on_off (blinks), on_off_color (blinks colorX/colorY), alternating (alternates colorX/colorY and colorX2/colorY2); signalMs = how long, in milliseconds (not breathe) / breatheTimes (mode 5, signal breathe): how many pulses, about 2 seconds apart
 3. Set Local Variable `colorMode` = `3`
 4. Set String Variable `sceneSlot` = `1`
 5. Set String Variable `brightness` = `100`
@@ -546,65 +552,82 @@ Settings file: `hue_scenes.ini` in the SAMMI folder, section `[hue]`, keys `ip`,
 12. Set String Variable `signalMs` = `8000`
 13. Set String Variable `colorX2` = `0.1532`
 14. Set String Variable `colorY2` = `0.0475`
-15. Comment: END OF SETTINGS. The commands below read the variables above.
-16. INI: Load Text hue_scenes.ini [hue] ip -> `hueIp`
-17. INI: Load Text hue_scenes.ini [hue] key -> `hueKey`
-18. INI: Load Text hue_scenes.ini [hue] light -> `hueLightId`
-19. INI: Load Text hue_scenes.ini [hue] light_type -> `hueLightType`
-20. Set String Variable `resp` = ``
-21. If `colorMode` == `1`  (block 3, else 0)
-    22. Delete Variable `resp`
-    23. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"color\":{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
-    24. Wait Until Variable Exists `resp` (timeout 10000 ms)
-25. If `colorMode` == `2`  (block 3, else 0)
-    26. Delete Variable `resp`
-    27. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"color_temperature\":{\"mirek\":/$whiteMirek$/},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
-    28. Wait Until Variable Exists `resp` (timeout 10000 ms)
-29. If `colorMode` == `3`  (block 6, else 0)
-    30. INI: Load Text hue_scenes.ini [hue] scene_/$sceneSlot$/ -> `hueSceneId`
-    31. If `hueSceneId` == `0`  (block 1, else 0)
-        32. Alert: Hue: no scene linked for slot /$sceneSlot$/. Run 'Hue: Link Scenes' first.
-    33. Delete Variable `resp`
-    34. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource/scene//$hueSceneId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"recall\":{\"action\":\"active\"}}"` -> save as `resp`
-    35. Wait Until Variable Exists `resp` (timeout 10000 ms)
-36. If `colorMode` == `4`  (block 3, else 0)
-    37. Delete Variable `resp`
-    38. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"effects\":{\"effect\":\"/$effect$/\"}}"` -> save as `resp`
-    39. Wait Until Variable Exists `resp` (timeout 10000 ms)
-40. If `colorMode` == `5`  (block 15, else 0)
-    41. If `signal` == `"breathe"`  (block 3, else 11)
-        42. Delete Variable `resp`
-        43. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"alert\":{\"action\":\"breathe\"}}"` -> save as `resp`
-        44. Wait Until Variable Exists `resp` (timeout 10000 ms)
-        45. If `signal` == `"on_off_color"`  (block 3, else 7)
-            46. Delete Variable `resp`
-            47. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/,\"colors\":[{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}}]}}"` -> save as `resp`
-            48. Wait Until Variable Exists `resp` (timeout 10000 ms)
-            49. If `signal` == `"alternating"`  (block 3, else 3)
-                50. Delete Variable `resp`
-                51. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/,\"colors\":[{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}},{\"xy\":{\"x\":/$colorX2$/,\"y\":/$colorY2$/}}]}}"` -> save as `resp`
-                52. Wait Until Variable Exists `resp` (timeout 10000 ms)
-                53. Delete Variable `resp`
-                54. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/}}"` -> save as `resp`
-                55. Wait Until Variable Exists `resp` (timeout 10000 ms)
-56. If `colorMode` == `6`  (block 3, else 0)
-    57. Delete Variable `resp`
-    58. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":false}}"` -> save as `resp`
-    59. Wait Until Variable Exists `resp` (timeout 10000 ms)
-60. String Get Length `respLen` of `/$resp$/`
-61. If `respLen` == `0`  (block 1, else 0)
-    62. Alert: Hue: no reply from the bridge (bridge off, wrong IP, or colorMode is not 1 to 6). Run Hue 1: Discover, then Hue 4: Test.
-63. String Position `errPos` = position of `"description"` in `/$resp$/`
-64. If `errPos` > `0`  (block 1, else 0)
-    65. Alert: Hue rejected the request: /$resp$/
-66. Overtime 1000 ms
-67. Trigger Button `hueReset` after 10000 ms (OFF)
+15. Set String Variable `effectSpeed` = `0.5`
+16. Set Local Variable `effectColor` = `0`
+17. Set Local Variable `breatheTimes` = `1`
+18. Comment: END OF SETTINGS. The commands below read the variables above.
+19. INI: Load Text hue_scenes.ini [hue] ip -> `hueIp`
+20. INI: Load Text hue_scenes.ini [hue] key -> `hueKey`
+21. INI: Load Text hue_scenes.ini [hue] light -> `hueLightId`
+22. INI: Load Text hue_scenes.ini [hue] light_type -> `hueLightType`
+23. Set String Variable `resp` = ``
+24. If `colorMode` == `1`  (block 3, else 0)
+    25. Delete Variable `resp`
+    26. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"color\":{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
+    27. Wait Until Variable Exists `resp` (timeout 10000 ms)
+28. If `colorMode` == `2`  (block 3, else 0)
+    29. Delete Variable `resp`
+    30. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"color_temperature\":{\"mirek\":/$whiteMirek$/},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
+    31. Wait Until Variable Exists `resp` (timeout 10000 ms)
+32. If `colorMode` == `3`  (block 6, else 0)
+    33. INI: Load Text hue_scenes.ini [hue] scene_/$sceneSlot$/ -> `hueSceneId`
+    34. If `hueSceneId` == `0`  (block 1, else 0)
+        35. Alert: Hue: no scene linked for slot /$sceneSlot$/. Run 'Hue: Link Scenes' first.
+    36. Delete Variable `resp`
+    37. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource/scene//$hueSceneId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"recall\":{\"action\":\"active\"}}"` -> save as `resp`
+    38. Wait Until Variable Exists `resp` (timeout 10000 ms)
+39. If `colorMode` == `4`  (block 12, else 0)
+    40. If `effectColor` == `1`  (block 3, else 3)
+        41. Delete Variable `resp`
+        42. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"effects_v2\":{\"action\":{\"effect\":\"/$effect$/\",\"parameters\":{\"speed\":/$effectSpeed$/,\"color\":{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}}}}}}"` -> save as `resp`
+        43. Wait Until Variable Exists `resp` (timeout 10000 ms)
+        44. Delete Variable `resp`
+        45. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"effects_v2\":{\"action\":{\"effect\":\"/$effect$/\",\"parameters\":{\"speed\":/$effectSpeed$/}}}}"` -> save as `resp`
+        46. Wait Until Variable Exists `resp` (timeout 10000 ms)
+    47. String Position `errPos` = position of `"description"` in `/$resp$/`
+    48. If `errPos` > `0`  (block 3, else 0)
+        49. Delete Variable `resp`
+        50. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"effects\":{\"effect\":\"/$effect$/\"}}"` -> save as `resp`
+        51. Wait Until Variable Exists `resp` (timeout 10000 ms)
+52. If `colorMode` == `5`  (block 20, else 0)
+    53. If `signal` == `"breathe"`  (block 8, else 11)
+        54. Set Local Variable `bt` = `0`
+        55. Repeat `breatheTimes` times  (block 6)
+            56. If `bt` > `0`  (block 1, else 0)
+                57. Wait For Timeout 2000 ms
+            58. Delete Variable `resp`
+            59. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"alert\":{\"action\":\"breathe\"}}"` -> save as `resp`
+            60. Wait Until Variable Exists `resp` (timeout 10000 ms)
+            61. Set Local Variable `bt` += `1`
+        62. If `signal` == `"on_off_color"`  (block 3, else 7)
+            63. Delete Variable `resp`
+            64. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/,\"colors\":[{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}}]}}"` -> save as `resp`
+            65. Wait Until Variable Exists `resp` (timeout 10000 ms)
+            66. If `signal` == `"alternating"`  (block 3, else 3)
+                67. Delete Variable `resp`
+                68. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/,\"colors\":[{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}},{\"xy\":{\"x\":/$colorX2$/,\"y\":/$colorY2$/}}]}}"` -> save as `resp`
+                69. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                70. Delete Variable `resp`
+                71. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/}}"` -> save as `resp`
+                72. Wait Until Variable Exists `resp` (timeout 10000 ms)
+73. If `colorMode` == `6`  (block 3, else 0)
+    74. Delete Variable `resp`
+    75. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":false}}"` -> save as `resp`
+    76. Wait Until Variable Exists `resp` (timeout 10000 ms)
+77. String Get Length `respLen` of `/$resp$/`
+78. If `respLen` == `0`  (block 1, else 0)
+    79. Alert: Hue: no reply from the bridge (bridge off, wrong IP, or colorMode is not 1 to 6). Run Hue 1: Discover, then Hue 4: Test.
+80. String Position `errPos` = position of `"description"` in `/$resp$/`
+81. If `errPos` > `0`  (block 1, else 0)
+    82. Alert: Hue rejected the request: /$resp$/
+83. Overtime 1000 ms
+84. Trigger Button `hueReset` after 10000 ms (OFF)
 
 ## Example: raw color (red)  (`hueColorRed`)
 - Setting: Allow Queue on
 
 1. Comment: ACTION BUTTON. Attach any trigger to it: right-click the button > Edit Triggers. When it fires it reads the bridge settings from the ini file, sends one request to the bridge, then holds the button 1 s so bursts of events stay under Hue's rate limit (1 command/s for rooms, zones and scenes). Events that arrive meanwhile queue up and run in order.
-2. Comment: SETTINGS - edit the values below, nothing else needs to change. / colorMode: 3 = recall a Hue scene (colors are edited in the Hue app; link scenes with 'Hue: Link Scenes'), 1 = fixed color (uses colorX/colorY), 2 = fixed white temperature (uses whiteMirek), 4 = light effect (uses effect), 5 = signal (uses signal), 6 = turn the light(s) off / sceneSlot: which linked scene this button recalls in mode 3 (1-4, the slots 'Hue: Link Scenes' fills) / brightness: 1-100 (modes 1 and 2 only) / colorX / colorY: CIE xy color, 0-1 each (red 0.6915/0.3083, green 0.17/0.7, blue 0.1532/0.0475, purple 0.2725/0.1096, orange 0.6/0.38, pink 0.45/0.25) / whiteMirek: 153 (cool daylight) to 500 (very warm); 370 = warm white, 250 = neutral / fadeMs: how long the bulb takes to change, in milliseconds (modes 1 and 2) / effect (mode 4): candle, fire, prism, sparkle, opal, glisten, underwater, cosmos, sunbeam, enchant, or no_effect to stop one. Bulbs only, not rooms or zones; run 'Hue: Try Action' to see what yours support / signal (mode 5): breathe (one pulse), on_off (blinks), on_off_color (blinks colorX/colorY), alternating (alternates colorX/colorY and colorX2/colorY2); signalMs = how long, in milliseconds
+2. Comment: SETTINGS - edit the values below, nothing else needs to change. / colorMode: 3 = recall a Hue scene (colors are edited in the Hue app; link scenes with 'Hue: Link Scenes'), 1 = fixed color (uses colorX/colorY), 2 = fixed white temperature (uses whiteMirek), 4 = light effect (uses effect), 5 = signal (uses signal), 6 = turn the light(s) off / sceneSlot: which linked scene this button recalls in mode 3 (1-4, the slots 'Hue: Link Scenes' fills) / brightness: 1-100 (modes 1, 2 and 4) / colorX / colorY: CIE xy color, 0-1 each (red 0.6915/0.3083, green 0.17/0.7, blue 0.1532/0.0475, purple 0.2725/0.1096, orange 0.6/0.38, pink 0.45/0.25) / whiteMirek: 153 (cool daylight) to 500 (very warm); 370 = warm white, 250 = neutral / fadeMs: how long the bulb takes to change, in milliseconds (modes 1 and 2) / effect (mode 4): candle, fire, prism, sparkle, opal, glisten, underwater, cosmos, sunbeam, enchant, or no_effect to stop one. Bulbs only, not rooms or zones; run 'Hue: Try Action' to see what yours support / effectSpeed (mode 4): 0 (slowest) to 1 (fastest) / effectColor (mode 4): 1 = tint the effect with colorX/colorY, 0 = the effect's own colors / signal (mode 5): breathe (one pulse; Hue gives it no speed or color), on_off (blinks), on_off_color (blinks colorX/colorY), alternating (alternates colorX/colorY and colorX2/colorY2); signalMs = how long, in milliseconds (not breathe) / breatheTimes (mode 5, signal breathe): how many pulses, about 2 seconds apart
 3. Set Local Variable `colorMode` = `1`
 4. Set String Variable `sceneSlot` = `1`
 5. Set String Variable `brightness` = `100`
@@ -617,65 +640,82 @@ Settings file: `hue_scenes.ini` in the SAMMI folder, section `[hue]`, keys `ip`,
 12. Set String Variable `signalMs` = `8000`
 13. Set String Variable `colorX2` = `0.1532`
 14. Set String Variable `colorY2` = `0.0475`
-15. Comment: END OF SETTINGS. The commands below read the variables above.
-16. INI: Load Text hue_scenes.ini [hue] ip -> `hueIp`
-17. INI: Load Text hue_scenes.ini [hue] key -> `hueKey`
-18. INI: Load Text hue_scenes.ini [hue] light -> `hueLightId`
-19. INI: Load Text hue_scenes.ini [hue] light_type -> `hueLightType`
-20. Set String Variable `resp` = ``
-21. If `colorMode` == `1`  (block 3, else 0)
-    22. Delete Variable `resp`
-    23. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"color\":{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
-    24. Wait Until Variable Exists `resp` (timeout 10000 ms)
-25. If `colorMode` == `2`  (block 3, else 0)
-    26. Delete Variable `resp`
-    27. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"color_temperature\":{\"mirek\":/$whiteMirek$/},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
-    28. Wait Until Variable Exists `resp` (timeout 10000 ms)
-29. If `colorMode` == `3`  (block 6, else 0)
-    30. INI: Load Text hue_scenes.ini [hue] scene_/$sceneSlot$/ -> `hueSceneId`
-    31. If `hueSceneId` == `0`  (block 1, else 0)
-        32. Alert: Hue: no scene linked for slot /$sceneSlot$/. Run 'Hue: Link Scenes' first.
-    33. Delete Variable `resp`
-    34. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource/scene//$hueSceneId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"recall\":{\"action\":\"active\"}}"` -> save as `resp`
-    35. Wait Until Variable Exists `resp` (timeout 10000 ms)
-36. If `colorMode` == `4`  (block 3, else 0)
-    37. Delete Variable `resp`
-    38. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"effects\":{\"effect\":\"/$effect$/\"}}"` -> save as `resp`
-    39. Wait Until Variable Exists `resp` (timeout 10000 ms)
-40. If `colorMode` == `5`  (block 15, else 0)
-    41. If `signal` == `"breathe"`  (block 3, else 11)
-        42. Delete Variable `resp`
-        43. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"alert\":{\"action\":\"breathe\"}}"` -> save as `resp`
-        44. Wait Until Variable Exists `resp` (timeout 10000 ms)
-        45. If `signal` == `"on_off_color"`  (block 3, else 7)
-            46. Delete Variable `resp`
-            47. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/,\"colors\":[{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}}]}}"` -> save as `resp`
-            48. Wait Until Variable Exists `resp` (timeout 10000 ms)
-            49. If `signal` == `"alternating"`  (block 3, else 3)
-                50. Delete Variable `resp`
-                51. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/,\"colors\":[{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}},{\"xy\":{\"x\":/$colorX2$/,\"y\":/$colorY2$/}}]}}"` -> save as `resp`
-                52. Wait Until Variable Exists `resp` (timeout 10000 ms)
-                53. Delete Variable `resp`
-                54. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/}}"` -> save as `resp`
-                55. Wait Until Variable Exists `resp` (timeout 10000 ms)
-56. If `colorMode` == `6`  (block 3, else 0)
-    57. Delete Variable `resp`
-    58. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":false}}"` -> save as `resp`
-    59. Wait Until Variable Exists `resp` (timeout 10000 ms)
-60. String Get Length `respLen` of `/$resp$/`
-61. If `respLen` == `0`  (block 1, else 0)
-    62. Alert: Hue: no reply from the bridge (bridge off, wrong IP, or colorMode is not 1 to 6). Run Hue 1: Discover, then Hue 4: Test.
-63. String Position `errPos` = position of `"description"` in `/$resp$/`
-64. If `errPos` > `0`  (block 1, else 0)
-    65. Alert: Hue rejected the request: /$resp$/
-66. Overtime 1000 ms
-67. Trigger Button `hueReset` after 10000 ms (OFF)
+15. Set String Variable `effectSpeed` = `0.5`
+16. Set Local Variable `effectColor` = `0`
+17. Set Local Variable `breatheTimes` = `1`
+18. Comment: END OF SETTINGS. The commands below read the variables above.
+19. INI: Load Text hue_scenes.ini [hue] ip -> `hueIp`
+20. INI: Load Text hue_scenes.ini [hue] key -> `hueKey`
+21. INI: Load Text hue_scenes.ini [hue] light -> `hueLightId`
+22. INI: Load Text hue_scenes.ini [hue] light_type -> `hueLightType`
+23. Set String Variable `resp` = ``
+24. If `colorMode` == `1`  (block 3, else 0)
+    25. Delete Variable `resp`
+    26. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"color\":{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
+    27. Wait Until Variable Exists `resp` (timeout 10000 ms)
+28. If `colorMode` == `2`  (block 3, else 0)
+    29. Delete Variable `resp`
+    30. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"color_temperature\":{\"mirek\":/$whiteMirek$/},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
+    31. Wait Until Variable Exists `resp` (timeout 10000 ms)
+32. If `colorMode` == `3`  (block 6, else 0)
+    33. INI: Load Text hue_scenes.ini [hue] scene_/$sceneSlot$/ -> `hueSceneId`
+    34. If `hueSceneId` == `0`  (block 1, else 0)
+        35. Alert: Hue: no scene linked for slot /$sceneSlot$/. Run 'Hue: Link Scenes' first.
+    36. Delete Variable `resp`
+    37. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource/scene//$hueSceneId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"recall\":{\"action\":\"active\"}}"` -> save as `resp`
+    38. Wait Until Variable Exists `resp` (timeout 10000 ms)
+39. If `colorMode` == `4`  (block 12, else 0)
+    40. If `effectColor` == `1`  (block 3, else 3)
+        41. Delete Variable `resp`
+        42. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"effects_v2\":{\"action\":{\"effect\":\"/$effect$/\",\"parameters\":{\"speed\":/$effectSpeed$/,\"color\":{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}}}}}}"` -> save as `resp`
+        43. Wait Until Variable Exists `resp` (timeout 10000 ms)
+        44. Delete Variable `resp`
+        45. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"effects_v2\":{\"action\":{\"effect\":\"/$effect$/\",\"parameters\":{\"speed\":/$effectSpeed$/}}}}"` -> save as `resp`
+        46. Wait Until Variable Exists `resp` (timeout 10000 ms)
+    47. String Position `errPos` = position of `"description"` in `/$resp$/`
+    48. If `errPos` > `0`  (block 3, else 0)
+        49. Delete Variable `resp`
+        50. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"effects\":{\"effect\":\"/$effect$/\"}}"` -> save as `resp`
+        51. Wait Until Variable Exists `resp` (timeout 10000 ms)
+52. If `colorMode` == `5`  (block 20, else 0)
+    53. If `signal` == `"breathe"`  (block 8, else 11)
+        54. Set Local Variable `bt` = `0`
+        55. Repeat `breatheTimes` times  (block 6)
+            56. If `bt` > `0`  (block 1, else 0)
+                57. Wait For Timeout 2000 ms
+            58. Delete Variable `resp`
+            59. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"alert\":{\"action\":\"breathe\"}}"` -> save as `resp`
+            60. Wait Until Variable Exists `resp` (timeout 10000 ms)
+            61. Set Local Variable `bt` += `1`
+        62. If `signal` == `"on_off_color"`  (block 3, else 7)
+            63. Delete Variable `resp`
+            64. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/,\"colors\":[{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}}]}}"` -> save as `resp`
+            65. Wait Until Variable Exists `resp` (timeout 10000 ms)
+            66. If `signal` == `"alternating"`  (block 3, else 3)
+                67. Delete Variable `resp`
+                68. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/,\"colors\":[{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}},{\"xy\":{\"x\":/$colorX2$/,\"y\":/$colorY2$/}}]}}"` -> save as `resp`
+                69. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                70. Delete Variable `resp`
+                71. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/}}"` -> save as `resp`
+                72. Wait Until Variable Exists `resp` (timeout 10000 ms)
+73. If `colorMode` == `6`  (block 3, else 0)
+    74. Delete Variable `resp`
+    75. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":false}}"` -> save as `resp`
+    76. Wait Until Variable Exists `resp` (timeout 10000 ms)
+77. String Get Length `respLen` of `/$resp$/`
+78. If `respLen` == `0`  (block 1, else 0)
+    79. Alert: Hue: no reply from the bridge (bridge off, wrong IP, or colorMode is not 1 to 6). Run Hue 1: Discover, then Hue 4: Test.
+80. String Position `errPos` = position of `"description"` in `/$resp$/`
+81. If `errPos` > `0`  (block 1, else 0)
+    82. Alert: Hue rejected the request: /$resp$/
+83. Overtime 1000 ms
+84. Trigger Button `hueReset` after 10000 ms (OFF)
 
 ## Example: effect (candle)  (`hueEffect`)
 - Setting: Allow Queue on
 
 1. Comment: ACTION BUTTON. Attach any trigger to it: right-click the button > Edit Triggers. When it fires it reads the bridge settings from the ini file, sends one request to the bridge, then holds the button 1 s so bursts of events stay under Hue's rate limit (1 command/s for rooms, zones and scenes). Events that arrive meanwhile queue up and run in order.
-2. Comment: SETTINGS - edit the values below, nothing else needs to change. / colorMode: 3 = recall a Hue scene (colors are edited in the Hue app; link scenes with 'Hue: Link Scenes'), 1 = fixed color (uses colorX/colorY), 2 = fixed white temperature (uses whiteMirek), 4 = light effect (uses effect), 5 = signal (uses signal), 6 = turn the light(s) off / sceneSlot: which linked scene this button recalls in mode 3 (1-4, the slots 'Hue: Link Scenes' fills) / brightness: 1-100 (modes 1 and 2 only) / colorX / colorY: CIE xy color, 0-1 each (red 0.6915/0.3083, green 0.17/0.7, blue 0.1532/0.0475, purple 0.2725/0.1096, orange 0.6/0.38, pink 0.45/0.25) / whiteMirek: 153 (cool daylight) to 500 (very warm); 370 = warm white, 250 = neutral / fadeMs: how long the bulb takes to change, in milliseconds (modes 1 and 2) / effect (mode 4): candle, fire, prism, sparkle, opal, glisten, underwater, cosmos, sunbeam, enchant, or no_effect to stop one. Bulbs only, not rooms or zones; run 'Hue: Try Action' to see what yours support / signal (mode 5): breathe (one pulse), on_off (blinks), on_off_color (blinks colorX/colorY), alternating (alternates colorX/colorY and colorX2/colorY2); signalMs = how long, in milliseconds
+2. Comment: SETTINGS - edit the values below, nothing else needs to change. / colorMode: 3 = recall a Hue scene (colors are edited in the Hue app; link scenes with 'Hue: Link Scenes'), 1 = fixed color (uses colorX/colorY), 2 = fixed white temperature (uses whiteMirek), 4 = light effect (uses effect), 5 = signal (uses signal), 6 = turn the light(s) off / sceneSlot: which linked scene this button recalls in mode 3 (1-4, the slots 'Hue: Link Scenes' fills) / brightness: 1-100 (modes 1, 2 and 4) / colorX / colorY: CIE xy color, 0-1 each (red 0.6915/0.3083, green 0.17/0.7, blue 0.1532/0.0475, purple 0.2725/0.1096, orange 0.6/0.38, pink 0.45/0.25) / whiteMirek: 153 (cool daylight) to 500 (very warm); 370 = warm white, 250 = neutral / fadeMs: how long the bulb takes to change, in milliseconds (modes 1 and 2) / effect (mode 4): candle, fire, prism, sparkle, opal, glisten, underwater, cosmos, sunbeam, enchant, or no_effect to stop one. Bulbs only, not rooms or zones; run 'Hue: Try Action' to see what yours support / effectSpeed (mode 4): 0 (slowest) to 1 (fastest) / effectColor (mode 4): 1 = tint the effect with colorX/colorY, 0 = the effect's own colors / signal (mode 5): breathe (one pulse; Hue gives it no speed or color), on_off (blinks), on_off_color (blinks colorX/colorY), alternating (alternates colorX/colorY and colorX2/colorY2); signalMs = how long, in milliseconds (not breathe) / breatheTimes (mode 5, signal breathe): how many pulses, about 2 seconds apart
 3. Set Local Variable `colorMode` = `4`
 4. Set String Variable `sceneSlot` = `1`
 5. Set String Variable `brightness` = `100`
@@ -688,64 +728,81 @@ Settings file: `hue_scenes.ini` in the SAMMI folder, section `[hue]`, keys `ip`,
 12. Set String Variable `signalMs` = `8000`
 13. Set String Variable `colorX2` = `0.1532`
 14. Set String Variable `colorY2` = `0.0475`
-15. Comment: END OF SETTINGS. The commands below read the variables above.
-16. INI: Load Text hue_scenes.ini [hue] ip -> `hueIp`
-17. INI: Load Text hue_scenes.ini [hue] key -> `hueKey`
-18. INI: Load Text hue_scenes.ini [hue] light -> `hueLightId`
-19. INI: Load Text hue_scenes.ini [hue] light_type -> `hueLightType`
-20. Set String Variable `resp` = ``
-21. If `colorMode` == `1`  (block 3, else 0)
-    22. Delete Variable `resp`
-    23. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"color\":{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
-    24. Wait Until Variable Exists `resp` (timeout 10000 ms)
-25. If `colorMode` == `2`  (block 3, else 0)
-    26. Delete Variable `resp`
-    27. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"color_temperature\":{\"mirek\":/$whiteMirek$/},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
-    28. Wait Until Variable Exists `resp` (timeout 10000 ms)
-29. If `colorMode` == `3`  (block 6, else 0)
-    30. INI: Load Text hue_scenes.ini [hue] scene_/$sceneSlot$/ -> `hueSceneId`
-    31. If `hueSceneId` == `0`  (block 1, else 0)
-        32. Alert: Hue: no scene linked for slot /$sceneSlot$/. Run 'Hue: Link Scenes' first.
-    33. Delete Variable `resp`
-    34. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource/scene//$hueSceneId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"recall\":{\"action\":\"active\"}}"` -> save as `resp`
-    35. Wait Until Variable Exists `resp` (timeout 10000 ms)
-36. If `colorMode` == `4`  (block 3, else 0)
-    37. Delete Variable `resp`
-    38. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"effects\":{\"effect\":\"/$effect$/\"}}"` -> save as `resp`
-    39. Wait Until Variable Exists `resp` (timeout 10000 ms)
-40. If `colorMode` == `5`  (block 15, else 0)
-    41. If `signal` == `"breathe"`  (block 3, else 11)
-        42. Delete Variable `resp`
-        43. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"alert\":{\"action\":\"breathe\"}}"` -> save as `resp`
-        44. Wait Until Variable Exists `resp` (timeout 10000 ms)
-        45. If `signal` == `"on_off_color"`  (block 3, else 7)
-            46. Delete Variable `resp`
-            47. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/,\"colors\":[{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}}]}}"` -> save as `resp`
-            48. Wait Until Variable Exists `resp` (timeout 10000 ms)
-            49. If `signal` == `"alternating"`  (block 3, else 3)
-                50. Delete Variable `resp`
-                51. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/,\"colors\":[{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}},{\"xy\":{\"x\":/$colorX2$/,\"y\":/$colorY2$/}}]}}"` -> save as `resp`
-                52. Wait Until Variable Exists `resp` (timeout 10000 ms)
-                53. Delete Variable `resp`
-                54. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/}}"` -> save as `resp`
-                55. Wait Until Variable Exists `resp` (timeout 10000 ms)
-56. If `colorMode` == `6`  (block 3, else 0)
-    57. Delete Variable `resp`
-    58. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":false}}"` -> save as `resp`
-    59. Wait Until Variable Exists `resp` (timeout 10000 ms)
-60. String Get Length `respLen` of `/$resp$/`
-61. If `respLen` == `0`  (block 1, else 0)
-    62. Alert: Hue: no reply from the bridge (bridge off, wrong IP, or colorMode is not 1 to 6). Run Hue 1: Discover, then Hue 4: Test.
-63. String Position `errPos` = position of `"description"` in `/$resp$/`
-64. If `errPos` > `0`  (block 1, else 0)
-    65. Alert: Hue rejected the request: /$resp$/
-66. Overtime 1000 ms
-67. Trigger Button `hueReset` after 10000 ms (OFF)
+15. Set String Variable `effectSpeed` = `0.5`
+16. Set Local Variable `effectColor` = `0`
+17. Set Local Variable `breatheTimes` = `1`
+18. Comment: END OF SETTINGS. The commands below read the variables above.
+19. INI: Load Text hue_scenes.ini [hue] ip -> `hueIp`
+20. INI: Load Text hue_scenes.ini [hue] key -> `hueKey`
+21. INI: Load Text hue_scenes.ini [hue] light -> `hueLightId`
+22. INI: Load Text hue_scenes.ini [hue] light_type -> `hueLightType`
+23. Set String Variable `resp` = ``
+24. If `colorMode` == `1`  (block 3, else 0)
+    25. Delete Variable `resp`
+    26. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"color\":{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
+    27. Wait Until Variable Exists `resp` (timeout 10000 ms)
+28. If `colorMode` == `2`  (block 3, else 0)
+    29. Delete Variable `resp`
+    30. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"color_temperature\":{\"mirek\":/$whiteMirek$/},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
+    31. Wait Until Variable Exists `resp` (timeout 10000 ms)
+32. If `colorMode` == `3`  (block 6, else 0)
+    33. INI: Load Text hue_scenes.ini [hue] scene_/$sceneSlot$/ -> `hueSceneId`
+    34. If `hueSceneId` == `0`  (block 1, else 0)
+        35. Alert: Hue: no scene linked for slot /$sceneSlot$/. Run 'Hue: Link Scenes' first.
+    36. Delete Variable `resp`
+    37. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource/scene//$hueSceneId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"recall\":{\"action\":\"active\"}}"` -> save as `resp`
+    38. Wait Until Variable Exists `resp` (timeout 10000 ms)
+39. If `colorMode` == `4`  (block 12, else 0)
+    40. If `effectColor` == `1`  (block 3, else 3)
+        41. Delete Variable `resp`
+        42. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"effects_v2\":{\"action\":{\"effect\":\"/$effect$/\",\"parameters\":{\"speed\":/$effectSpeed$/,\"color\":{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}}}}}}"` -> save as `resp`
+        43. Wait Until Variable Exists `resp` (timeout 10000 ms)
+        44. Delete Variable `resp`
+        45. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"effects_v2\":{\"action\":{\"effect\":\"/$effect$/\",\"parameters\":{\"speed\":/$effectSpeed$/}}}}"` -> save as `resp`
+        46. Wait Until Variable Exists `resp` (timeout 10000 ms)
+    47. String Position `errPos` = position of `"description"` in `/$resp$/`
+    48. If `errPos` > `0`  (block 3, else 0)
+        49. Delete Variable `resp`
+        50. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"effects\":{\"effect\":\"/$effect$/\"}}"` -> save as `resp`
+        51. Wait Until Variable Exists `resp` (timeout 10000 ms)
+52. If `colorMode` == `5`  (block 20, else 0)
+    53. If `signal` == `"breathe"`  (block 8, else 11)
+        54. Set Local Variable `bt` = `0`
+        55. Repeat `breatheTimes` times  (block 6)
+            56. If `bt` > `0`  (block 1, else 0)
+                57. Wait For Timeout 2000 ms
+            58. Delete Variable `resp`
+            59. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"alert\":{\"action\":\"breathe\"}}"` -> save as `resp`
+            60. Wait Until Variable Exists `resp` (timeout 10000 ms)
+            61. Set Local Variable `bt` += `1`
+        62. If `signal` == `"on_off_color"`  (block 3, else 7)
+            63. Delete Variable `resp`
+            64. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/,\"colors\":[{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}}]}}"` -> save as `resp`
+            65. Wait Until Variable Exists `resp` (timeout 10000 ms)
+            66. If `signal` == `"alternating"`  (block 3, else 3)
+                67. Delete Variable `resp`
+                68. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/,\"colors\":[{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}},{\"xy\":{\"x\":/$colorX2$/,\"y\":/$colorY2$/}}]}}"` -> save as `resp`
+                69. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                70. Delete Variable `resp`
+                71. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/}}"` -> save as `resp`
+                72. Wait Until Variable Exists `resp` (timeout 10000 ms)
+73. If `colorMode` == `6`  (block 3, else 0)
+    74. Delete Variable `resp`
+    75. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":false}}"` -> save as `resp`
+    76. Wait Until Variable Exists `resp` (timeout 10000 ms)
+77. String Get Length `respLen` of `/$resp$/`
+78. If `respLen` == `0`  (block 1, else 0)
+    79. Alert: Hue: no reply from the bridge (bridge off, wrong IP, or colorMode is not 1 to 6). Run Hue 1: Discover, then Hue 4: Test.
+80. String Position `errPos` = position of `"description"` in `/$resp$/`
+81. If `errPos` > `0`  (block 1, else 0)
+    82. Alert: Hue rejected the request: /$resp$/
+83. Overtime 1000 ms
+84. Trigger Button `hueReset` after 10000 ms (OFF)
 
 ## Reset (optional)  (`hueReset`)
 
 1. Comment: Restores neutral white. Not triggered by anything unless you enable the disabled 'Trigger Button' command at the end of each action button (10 s delay).
-2. Comment: SETTINGS - edit the values below, nothing else needs to change. / colorMode: 3 = recall a Hue scene (colors are edited in the Hue app; link scenes with 'Hue: Link Scenes'), 1 = fixed color (uses colorX/colorY), 2 = fixed white temperature (uses whiteMirek), 4 = light effect (uses effect), 5 = signal (uses signal), 6 = turn the light(s) off / sceneSlot: which linked scene this button recalls in mode 3 (1-4, the slots 'Hue: Link Scenes' fills) / brightness: 1-100 (modes 1 and 2 only) / colorX / colorY: CIE xy color, 0-1 each (red 0.6915/0.3083, green 0.17/0.7, blue 0.1532/0.0475, purple 0.2725/0.1096, orange 0.6/0.38, pink 0.45/0.25) / whiteMirek: 153 (cool daylight) to 500 (very warm); 370 = warm white, 250 = neutral / fadeMs: how long the bulb takes to change, in milliseconds (modes 1 and 2) / effect (mode 4): candle, fire, prism, sparkle, opal, glisten, underwater, cosmos, sunbeam, enchant, or no_effect to stop one. Bulbs only, not rooms or zones; run 'Hue: Try Action' to see what yours support / signal (mode 5): breathe (one pulse), on_off (blinks), on_off_color (blinks colorX/colorY), alternating (alternates colorX/colorY and colorX2/colorY2); signalMs = how long, in milliseconds
+2. Comment: SETTINGS - edit the values below, nothing else needs to change. / colorMode: 3 = recall a Hue scene (colors are edited in the Hue app; link scenes with 'Hue: Link Scenes'), 1 = fixed color (uses colorX/colorY), 2 = fixed white temperature (uses whiteMirek), 4 = light effect (uses effect), 5 = signal (uses signal), 6 = turn the light(s) off / sceneSlot: which linked scene this button recalls in mode 3 (1-4, the slots 'Hue: Link Scenes' fills) / brightness: 1-100 (modes 1, 2 and 4) / colorX / colorY: CIE xy color, 0-1 each (red 0.6915/0.3083, green 0.17/0.7, blue 0.1532/0.0475, purple 0.2725/0.1096, orange 0.6/0.38, pink 0.45/0.25) / whiteMirek: 153 (cool daylight) to 500 (very warm); 370 = warm white, 250 = neutral / fadeMs: how long the bulb takes to change, in milliseconds (modes 1 and 2) / effect (mode 4): candle, fire, prism, sparkle, opal, glisten, underwater, cosmos, sunbeam, enchant, or no_effect to stop one. Bulbs only, not rooms or zones; run 'Hue: Try Action' to see what yours support / effectSpeed (mode 4): 0 (slowest) to 1 (fastest) / effectColor (mode 4): 1 = tint the effect with colorX/colorY, 0 = the effect's own colors / signal (mode 5): breathe (one pulse; Hue gives it no speed or color), on_off (blinks), on_off_color (blinks colorX/colorY), alternating (alternates colorX/colorY and colorX2/colorY2); signalMs = how long, in milliseconds (not breathe) / breatheTimes (mode 5, signal breathe): how many pulses, about 2 seconds apart
 3. Set Local Variable `colorMode` = `2`
 4. Set String Variable `sceneSlot` = `1`
 5. Set String Variable `brightness` = `60`
@@ -758,63 +815,80 @@ Settings file: `hue_scenes.ini` in the SAMMI folder, section `[hue]`, keys `ip`,
 12. Set String Variable `signalMs` = `8000`
 13. Set String Variable `colorX2` = `0.1532`
 14. Set String Variable `colorY2` = `0.0475`
-15. Comment: END OF SETTINGS. The commands below read the variables above.
-16. INI: Load Text hue_scenes.ini [hue] ip -> `hueIp`
-17. INI: Load Text hue_scenes.ini [hue] key -> `hueKey`
-18. INI: Load Text hue_scenes.ini [hue] light -> `hueLightId`
-19. INI: Load Text hue_scenes.ini [hue] light_type -> `hueLightType`
-20. Set String Variable `resp` = ``
-21. If `colorMode` == `1`  (block 3, else 0)
-    22. Delete Variable `resp`
-    23. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"color\":{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
-    24. Wait Until Variable Exists `resp` (timeout 10000 ms)
-25. If `colorMode` == `2`  (block 3, else 0)
-    26. Delete Variable `resp`
-    27. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"color_temperature\":{\"mirek\":/$whiteMirek$/},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
-    28. Wait Until Variable Exists `resp` (timeout 10000 ms)
-29. If `colorMode` == `3`  (block 6, else 0)
-    30. INI: Load Text hue_scenes.ini [hue] scene_/$sceneSlot$/ -> `hueSceneId`
-    31. If `hueSceneId` == `0`  (block 1, else 0)
-        32. Alert: Hue: no scene linked for slot /$sceneSlot$/. Run 'Hue: Link Scenes' first.
-    33. Delete Variable `resp`
-    34. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource/scene//$hueSceneId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"recall\":{\"action\":\"active\"}}"` -> save as `resp`
-    35. Wait Until Variable Exists `resp` (timeout 10000 ms)
-36. If `colorMode` == `4`  (block 3, else 0)
-    37. Delete Variable `resp`
-    38. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"effects\":{\"effect\":\"/$effect$/\"}}"` -> save as `resp`
-    39. Wait Until Variable Exists `resp` (timeout 10000 ms)
-40. If `colorMode` == `5`  (block 15, else 0)
-    41. If `signal` == `"breathe"`  (block 3, else 11)
-        42. Delete Variable `resp`
-        43. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"alert\":{\"action\":\"breathe\"}}"` -> save as `resp`
-        44. Wait Until Variable Exists `resp` (timeout 10000 ms)
-        45. If `signal` == `"on_off_color"`  (block 3, else 7)
-            46. Delete Variable `resp`
-            47. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/,\"colors\":[{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}}]}}"` -> save as `resp`
-            48. Wait Until Variable Exists `resp` (timeout 10000 ms)
-            49. If `signal` == `"alternating"`  (block 3, else 3)
-                50. Delete Variable `resp`
-                51. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/,\"colors\":[{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}},{\"xy\":{\"x\":/$colorX2$/,\"y\":/$colorY2$/}}]}}"` -> save as `resp`
-                52. Wait Until Variable Exists `resp` (timeout 10000 ms)
-                53. Delete Variable `resp`
-                54. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/}}"` -> save as `resp`
-                55. Wait Until Variable Exists `resp` (timeout 10000 ms)
-56. If `colorMode` == `6`  (block 3, else 0)
-    57. Delete Variable `resp`
-    58. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":false}}"` -> save as `resp`
-    59. Wait Until Variable Exists `resp` (timeout 10000 ms)
-60. String Get Length `respLen` of `/$resp$/`
-61. If `respLen` == `0`  (block 1, else 0)
-    62. Alert: Hue: no reply from the bridge (bridge off, wrong IP, or colorMode is not 1 to 6). Run Hue 1: Discover, then Hue 4: Test.
-63. String Position `errPos` = position of `"description"` in `/$resp$/`
-64. If `errPos` > `0`  (block 1, else 0)
-    65. Alert: Hue rejected the request: /$resp$/
+15. Set String Variable `effectSpeed` = `0.5`
+16. Set Local Variable `effectColor` = `0`
+17. Set Local Variable `breatheTimes` = `1`
+18. Comment: END OF SETTINGS. The commands below read the variables above.
+19. INI: Load Text hue_scenes.ini [hue] ip -> `hueIp`
+20. INI: Load Text hue_scenes.ini [hue] key -> `hueKey`
+21. INI: Load Text hue_scenes.ini [hue] light -> `hueLightId`
+22. INI: Load Text hue_scenes.ini [hue] light_type -> `hueLightType`
+23. Set String Variable `resp` = ``
+24. If `colorMode` == `1`  (block 3, else 0)
+    25. Delete Variable `resp`
+    26. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"color\":{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
+    27. Wait Until Variable Exists `resp` (timeout 10000 ms)
+28. If `colorMode` == `2`  (block 3, else 0)
+    29. Delete Variable `resp`
+    30. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"color_temperature\":{\"mirek\":/$whiteMirek$/},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
+    31. Wait Until Variable Exists `resp` (timeout 10000 ms)
+32. If `colorMode` == `3`  (block 6, else 0)
+    33. INI: Load Text hue_scenes.ini [hue] scene_/$sceneSlot$/ -> `hueSceneId`
+    34. If `hueSceneId` == `0`  (block 1, else 0)
+        35. Alert: Hue: no scene linked for slot /$sceneSlot$/. Run 'Hue: Link Scenes' first.
+    36. Delete Variable `resp`
+    37. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource/scene//$hueSceneId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"recall\":{\"action\":\"active\"}}"` -> save as `resp`
+    38. Wait Until Variable Exists `resp` (timeout 10000 ms)
+39. If `colorMode` == `4`  (block 12, else 0)
+    40. If `effectColor` == `1`  (block 3, else 3)
+        41. Delete Variable `resp`
+        42. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"effects_v2\":{\"action\":{\"effect\":\"/$effect$/\",\"parameters\":{\"speed\":/$effectSpeed$/,\"color\":{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}}}}}}"` -> save as `resp`
+        43. Wait Until Variable Exists `resp` (timeout 10000 ms)
+        44. Delete Variable `resp`
+        45. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"effects_v2\":{\"action\":{\"effect\":\"/$effect$/\",\"parameters\":{\"speed\":/$effectSpeed$/}}}}"` -> save as `resp`
+        46. Wait Until Variable Exists `resp` (timeout 10000 ms)
+    47. String Position `errPos` = position of `"description"` in `/$resp$/`
+    48. If `errPos` > `0`  (block 3, else 0)
+        49. Delete Variable `resp`
+        50. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"effects\":{\"effect\":\"/$effect$/\"}}"` -> save as `resp`
+        51. Wait Until Variable Exists `resp` (timeout 10000 ms)
+52. If `colorMode` == `5`  (block 20, else 0)
+    53. If `signal` == `"breathe"`  (block 8, else 11)
+        54. Set Local Variable `bt` = `0`
+        55. Repeat `breatheTimes` times  (block 6)
+            56. If `bt` > `0`  (block 1, else 0)
+                57. Wait For Timeout 2000 ms
+            58. Delete Variable `resp`
+            59. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"alert\":{\"action\":\"breathe\"}}"` -> save as `resp`
+            60. Wait Until Variable Exists `resp` (timeout 10000 ms)
+            61. Set Local Variable `bt` += `1`
+        62. If `signal` == `"on_off_color"`  (block 3, else 7)
+            63. Delete Variable `resp`
+            64. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/,\"colors\":[{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}}]}}"` -> save as `resp`
+            65. Wait Until Variable Exists `resp` (timeout 10000 ms)
+            66. If `signal` == `"alternating"`  (block 3, else 3)
+                67. Delete Variable `resp`
+                68. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/,\"colors\":[{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}},{\"xy\":{\"x\":/$colorX2$/,\"y\":/$colorY2$/}}]}}"` -> save as `resp`
+                69. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                70. Delete Variable `resp`
+                71. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/}}"` -> save as `resp`
+                72. Wait Until Variable Exists `resp` (timeout 10000 ms)
+73. If `colorMode` == `6`  (block 3, else 0)
+    74. Delete Variable `resp`
+    75. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":false}}"` -> save as `resp`
+    76. Wait Until Variable Exists `resp` (timeout 10000 ms)
+77. String Get Length `respLen` of `/$resp$/`
+78. If `respLen` == `0`  (block 1, else 0)
+    79. Alert: Hue: no reply from the bridge (bridge off, wrong IP, or colorMode is not 1 to 6). Run Hue 1: Discover, then Hue 4: Test.
+80. String Position `errPos` = position of `"description"` in `/$resp$/`
+81. If `errPos` > `0`  (block 1, else 0)
+    82. Alert: Hue rejected the request: /$resp$/
 
 ## Example: turn off  (`hueOff`)
 - Setting: Allow Queue on
 
 1. Comment: ACTION BUTTON. Attach any trigger to it: right-click the button > Edit Triggers. When it fires it reads the bridge settings from the ini file, sends one request to the bridge, then holds the button 1 s so bursts of events stay under Hue's rate limit (1 command/s for rooms, zones and scenes). Events that arrive meanwhile queue up and run in order.
-2. Comment: SETTINGS - edit the values below, nothing else needs to change. / colorMode: 3 = recall a Hue scene (colors are edited in the Hue app; link scenes with 'Hue: Link Scenes'), 1 = fixed color (uses colorX/colorY), 2 = fixed white temperature (uses whiteMirek), 4 = light effect (uses effect), 5 = signal (uses signal), 6 = turn the light(s) off / sceneSlot: which linked scene this button recalls in mode 3 (1-4, the slots 'Hue: Link Scenes' fills) / brightness: 1-100 (modes 1 and 2 only) / colorX / colorY: CIE xy color, 0-1 each (red 0.6915/0.3083, green 0.17/0.7, blue 0.1532/0.0475, purple 0.2725/0.1096, orange 0.6/0.38, pink 0.45/0.25) / whiteMirek: 153 (cool daylight) to 500 (very warm); 370 = warm white, 250 = neutral / fadeMs: how long the bulb takes to change, in milliseconds (modes 1 and 2) / effect (mode 4): candle, fire, prism, sparkle, opal, glisten, underwater, cosmos, sunbeam, enchant, or no_effect to stop one. Bulbs only, not rooms or zones; run 'Hue: Try Action' to see what yours support / signal (mode 5): breathe (one pulse), on_off (blinks), on_off_color (blinks colorX/colorY), alternating (alternates colorX/colorY and colorX2/colorY2); signalMs = how long, in milliseconds
+2. Comment: SETTINGS - edit the values below, nothing else needs to change. / colorMode: 3 = recall a Hue scene (colors are edited in the Hue app; link scenes with 'Hue: Link Scenes'), 1 = fixed color (uses colorX/colorY), 2 = fixed white temperature (uses whiteMirek), 4 = light effect (uses effect), 5 = signal (uses signal), 6 = turn the light(s) off / sceneSlot: which linked scene this button recalls in mode 3 (1-4, the slots 'Hue: Link Scenes' fills) / brightness: 1-100 (modes 1, 2 and 4) / colorX / colorY: CIE xy color, 0-1 each (red 0.6915/0.3083, green 0.17/0.7, blue 0.1532/0.0475, purple 0.2725/0.1096, orange 0.6/0.38, pink 0.45/0.25) / whiteMirek: 153 (cool daylight) to 500 (very warm); 370 = warm white, 250 = neutral / fadeMs: how long the bulb takes to change, in milliseconds (modes 1 and 2) / effect (mode 4): candle, fire, prism, sparkle, opal, glisten, underwater, cosmos, sunbeam, enchant, or no_effect to stop one. Bulbs only, not rooms or zones; run 'Hue: Try Action' to see what yours support / effectSpeed (mode 4): 0 (slowest) to 1 (fastest) / effectColor (mode 4): 1 = tint the effect with colorX/colorY, 0 = the effect's own colors / signal (mode 5): breathe (one pulse; Hue gives it no speed or color), on_off (blinks), on_off_color (blinks colorX/colorY), alternating (alternates colorX/colorY and colorX2/colorY2); signalMs = how long, in milliseconds (not breathe) / breatheTimes (mode 5, signal breathe): how many pulses, about 2 seconds apart
 3. Set Local Variable `colorMode` = `6`
 4. Set String Variable `sceneSlot` = `1`
 5. Set String Variable `brightness` = `100`
@@ -827,148 +901,162 @@ Settings file: `hue_scenes.ini` in the SAMMI folder, section `[hue]`, keys `ip`,
 12. Set String Variable `signalMs` = `8000`
 13. Set String Variable `colorX2` = `0.1532`
 14. Set String Variable `colorY2` = `0.0475`
-15. Comment: END OF SETTINGS. The commands below read the variables above.
-16. INI: Load Text hue_scenes.ini [hue] ip -> `hueIp`
-17. INI: Load Text hue_scenes.ini [hue] key -> `hueKey`
-18. INI: Load Text hue_scenes.ini [hue] light -> `hueLightId`
-19. INI: Load Text hue_scenes.ini [hue] light_type -> `hueLightType`
-20. Set String Variable `resp` = ``
-21. If `colorMode` == `1`  (block 3, else 0)
-    22. Delete Variable `resp`
-    23. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"color\":{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
-    24. Wait Until Variable Exists `resp` (timeout 10000 ms)
-25. If `colorMode` == `2`  (block 3, else 0)
-    26. Delete Variable `resp`
-    27. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"color_temperature\":{\"mirek\":/$whiteMirek$/},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
-    28. Wait Until Variable Exists `resp` (timeout 10000 ms)
-29. If `colorMode` == `3`  (block 6, else 0)
-    30. INI: Load Text hue_scenes.ini [hue] scene_/$sceneSlot$/ -> `hueSceneId`
-    31. If `hueSceneId` == `0`  (block 1, else 0)
-        32. Alert: Hue: no scene linked for slot /$sceneSlot$/. Run 'Hue: Link Scenes' first.
-    33. Delete Variable `resp`
-    34. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource/scene//$hueSceneId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"recall\":{\"action\":\"active\"}}"` -> save as `resp`
-    35. Wait Until Variable Exists `resp` (timeout 10000 ms)
-36. If `colorMode` == `4`  (block 3, else 0)
-    37. Delete Variable `resp`
-    38. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"effects\":{\"effect\":\"/$effect$/\"}}"` -> save as `resp`
-    39. Wait Until Variable Exists `resp` (timeout 10000 ms)
-40. If `colorMode` == `5`  (block 15, else 0)
-    41. If `signal` == `"breathe"`  (block 3, else 11)
-        42. Delete Variable `resp`
-        43. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"alert\":{\"action\":\"breathe\"}}"` -> save as `resp`
-        44. Wait Until Variable Exists `resp` (timeout 10000 ms)
-        45. If `signal` == `"on_off_color"`  (block 3, else 7)
-            46. Delete Variable `resp`
-            47. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/,\"colors\":[{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}}]}}"` -> save as `resp`
-            48. Wait Until Variable Exists `resp` (timeout 10000 ms)
-            49. If `signal` == `"alternating"`  (block 3, else 3)
-                50. Delete Variable `resp`
-                51. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/,\"colors\":[{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}},{\"xy\":{\"x\":/$colorX2$/,\"y\":/$colorY2$/}}]}}"` -> save as `resp`
-                52. Wait Until Variable Exists `resp` (timeout 10000 ms)
-                53. Delete Variable `resp`
-                54. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/}}"` -> save as `resp`
-                55. Wait Until Variable Exists `resp` (timeout 10000 ms)
-56. If `colorMode` == `6`  (block 3, else 0)
-    57. Delete Variable `resp`
-    58. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":false}}"` -> save as `resp`
-    59. Wait Until Variable Exists `resp` (timeout 10000 ms)
-60. String Get Length `respLen` of `/$resp$/`
-61. If `respLen` == `0`  (block 1, else 0)
-    62. Alert: Hue: no reply from the bridge (bridge off, wrong IP, or colorMode is not 1 to 6). Run Hue 1: Discover, then Hue 4: Test.
-63. String Position `errPos` = position of `"description"` in `/$resp$/`
-64. If `errPos` > `0`  (block 1, else 0)
-    65. Alert: Hue rejected the request: /$resp$/
-66. Overtime 1000 ms
-67. Trigger Button `hueReset` after 10000 ms (OFF)
+15. Set String Variable `effectSpeed` = `0.5`
+16. Set Local Variable `effectColor` = `0`
+17. Set Local Variable `breatheTimes` = `1`
+18. Comment: END OF SETTINGS. The commands below read the variables above.
+19. INI: Load Text hue_scenes.ini [hue] ip -> `hueIp`
+20. INI: Load Text hue_scenes.ini [hue] key -> `hueKey`
+21. INI: Load Text hue_scenes.ini [hue] light -> `hueLightId`
+22. INI: Load Text hue_scenes.ini [hue] light_type -> `hueLightType`
+23. Set String Variable `resp` = ``
+24. If `colorMode` == `1`  (block 3, else 0)
+    25. Delete Variable `resp`
+    26. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"color\":{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
+    27. Wait Until Variable Exists `resp` (timeout 10000 ms)
+28. If `colorMode` == `2`  (block 3, else 0)
+    29. Delete Variable `resp`
+    30. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"color_temperature\":{\"mirek\":/$whiteMirek$/},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
+    31. Wait Until Variable Exists `resp` (timeout 10000 ms)
+32. If `colorMode` == `3`  (block 6, else 0)
+    33. INI: Load Text hue_scenes.ini [hue] scene_/$sceneSlot$/ -> `hueSceneId`
+    34. If `hueSceneId` == `0`  (block 1, else 0)
+        35. Alert: Hue: no scene linked for slot /$sceneSlot$/. Run 'Hue: Link Scenes' first.
+    36. Delete Variable `resp`
+    37. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource/scene//$hueSceneId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"recall\":{\"action\":\"active\"}}"` -> save as `resp`
+    38. Wait Until Variable Exists `resp` (timeout 10000 ms)
+39. If `colorMode` == `4`  (block 12, else 0)
+    40. If `effectColor` == `1`  (block 3, else 3)
+        41. Delete Variable `resp`
+        42. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"effects_v2\":{\"action\":{\"effect\":\"/$effect$/\",\"parameters\":{\"speed\":/$effectSpeed$/,\"color\":{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}}}}}}"` -> save as `resp`
+        43. Wait Until Variable Exists `resp` (timeout 10000 ms)
+        44. Delete Variable `resp`
+        45. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"effects_v2\":{\"action\":{\"effect\":\"/$effect$/\",\"parameters\":{\"speed\":/$effectSpeed$/}}}}"` -> save as `resp`
+        46. Wait Until Variable Exists `resp` (timeout 10000 ms)
+    47. String Position `errPos` = position of `"description"` in `/$resp$/`
+    48. If `errPos` > `0`  (block 3, else 0)
+        49. Delete Variable `resp`
+        50. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"effects\":{\"effect\":\"/$effect$/\"}}"` -> save as `resp`
+        51. Wait Until Variable Exists `resp` (timeout 10000 ms)
+52. If `colorMode` == `5`  (block 20, else 0)
+    53. If `signal` == `"breathe"`  (block 8, else 11)
+        54. Set Local Variable `bt` = `0`
+        55. Repeat `breatheTimes` times  (block 6)
+            56. If `bt` > `0`  (block 1, else 0)
+                57. Wait For Timeout 2000 ms
+            58. Delete Variable `resp`
+            59. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"alert\":{\"action\":\"breathe\"}}"` -> save as `resp`
+            60. Wait Until Variable Exists `resp` (timeout 10000 ms)
+            61. Set Local Variable `bt` += `1`
+        62. If `signal` == `"on_off_color"`  (block 3, else 7)
+            63. Delete Variable `resp`
+            64. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/,\"colors\":[{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}}]}}"` -> save as `resp`
+            65. Wait Until Variable Exists `resp` (timeout 10000 ms)
+            66. If `signal` == `"alternating"`  (block 3, else 3)
+                67. Delete Variable `resp`
+                68. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/,\"colors\":[{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}},{\"xy\":{\"x\":/$colorX2$/,\"y\":/$colorY2$/}}]}}"` -> save as `resp`
+                69. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                70. Delete Variable `resp`
+                71. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"signaling\":{\"signal\":\"/$signal$/\",\"duration\":/$signalMs$/}}"` -> save as `resp`
+                72. Wait Until Variable Exists `resp` (timeout 10000 ms)
+73. If `colorMode` == `6`  (block 3, else 0)
+    74. Delete Variable `resp`
+    75. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":false}}"` -> save as `resp`
+    76. Wait Until Variable Exists `resp` (timeout 10000 ms)
+77. String Get Length `respLen` of `/$resp$/`
+78. If `respLen` == `0`  (block 1, else 0)
+    79. Alert: Hue: no reply from the bridge (bridge off, wrong IP, or colorMode is not 1 to 6). Run Hue 1: Discover, then Hue 4: Test.
+80. String Position `errPos` = position of `"description"` in `/$resp$/`
+81. If `errPos` > `0`  (block 1, else 0)
+    82. Alert: Hue rejected the request: /$resp$/
+83. Overtime 1000 ms
+84. Trigger Button `hueReset` after 10000 ms (OFF)
 
 ## Example: scene sequence  (`hueSequence`)
 
 1. Comment: SCENE SEQUENCE. Attach any trigger (right-click > Edit Triggers). Plays the linked scenes in 'scenes' order, each for stepSeconds, then does afterLast. Starting it stops any other running sequence.
-2. Comment: SETTINGS - edit the values below. / scenes: slot numbers from 'Hue: Link Scenes', comma separated, played in this order (e.g. 1,2,3; one slot is fine) / stepSeconds: how long each scene stays on (1 or more) / afterLast: "loop" = start again from the first scene (until stopped or maxMinutes), "off" = turn the scenes' rooms off and stop, "stay" = leave the last scene on and stop / maxMinutes: stop after this many minutes in total; 0 = no limit / afterMax: what to do when maxMinutes is reached: "off" or "stay"
+2. Comment: SETTINGS - edit the values below. / scenes: slot numbers from 'Hue: Link Scenes', comma separated, played in this order (e.g. 1,2,3; one slot is fine) / stepSeconds: time from one scene change to the next (1 or more; Hue accepts about one scene change per second) / fadeMs: how long each change fades, in milliseconds (0 = instant); keep it below stepSeconds x 1000 / afterLast: "loop" = start again from the first scene (until stopped or maxMinutes), "off" = turn the scenes' rooms off and stop, "stay" = leave the last scene on and stop / maxMinutes: stop after this many minutes in total; 0 = no limit / afterMax: what to do when maxMinutes is reached: "off" or "stay"
 3. Set String Variable `scenes` = `1,2`
 4. Set Local Variable `stepSeconds` = `30`
 5. Set String Variable `afterLast` = `loop`
 6. Set Local Variable `maxMinutes` = `0`
 7. Set String Variable `afterMax` = `off`
-8. Comment: END OF SETTINGS.
-9. Stop Button/Group `hueSeq` (ongoing True, queued True, include self False)
-10. INI: Load Text hue_scenes.ini [hue] ip -> `hueIp`
-11. INI: Load Text hue_scenes.ini [hue] key -> `hueKey`
-12. INI: Load Text hue_scenes.ini [hue] light -> `hueLightId`
-13. INI: Load Text hue_scenes.ini [hue] light_type -> `hueLightType`
-14. Parse Array/Object `seq` from `[/$scenes$/]`
-15. Array Get Size `seq` -> `nSeq`
-16. Set Local Variable `stepMs` = `(stepSeconds * 1000)`
-17. Set Local Variable `maxMs` = `(maxMinutes * 60000)`
-18. Set Local Variable `elapsed` = `0`
-19. Set Local Variable `s` = `0`
-20. Set Local Variable `done` = `0`
-21. If `nSeq` == `0`  (block 2, else 0)
-    22. Alert: Hue sequence: 'scenes' is empty. Set it to slot numbers like 1,2.
-    23. Set Local Variable `done` = `1`
-24. If `stepMs` < `1000`  (block 2, else 0)
-    25. Alert: Hue sequence: stepSeconds must be 1 or more.
-    26. Set Local Variable `done` = `1`
-27. Repeat `100000` times  (block 59)
-    28. Break if `done` == `1`
-    29. Set String Variable `slot` = `/$seq[s]$/`
-    30. INI: Load Text hue_scenes.ini [hue] scene_/$slot$/ -> `hueSceneId`
-    31. If `hueSceneId` == `0`  (block 1, else 9)
-        32. Alert: Hue sequence: no scene linked for slot /$slot$/. Run 'Hue: Link Scenes'.
-        33. Delete Variable `resp`
-        34. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource/scene//$hueSceneId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"recall\":{\"action\":\"active\"}}"` -> save as `resp`
-        35. Wait Until Variable Exists `resp` (timeout 10000 ms)
-        36. String Get Length `respLen` of `/$resp$/`
-        37. If `respLen` == `0`  (block 1, else 0)
-            38. Alert: Hue: no reply from the bridge (bridge off or wrong IP). Run Hue 1: Discover, then Hue 4: Test.
-        39. String Position `errPos` = position of `"description"` in `/$resp$/`
-        40. If `errPos` > `0`  (block 1, else 0)
-            41. Alert: Hue rejected the request: /$resp$/
-    42. Wait For Timeout stepMs ms
-    43. Set Local Variable `elapsed` += `stepMs`
-    44. Set Local Variable `s` += `1`
-    45. If `maxMs` > `0`  (block 19, else 0)
-        46. If `elapsed` >= `maxMs`  (block 18, else 0)
-            47. If `afterMax` == `"off"`  (block 16, else 0)
-                48. Set Local Variable `o` = `0`
-                49. Repeat `nSeq` times  (block 14)
-                    50. Set String Variable `slot` = `/$seq[o]$/`
-                    51. INI: Load Text hue_scenes.ini [hue] scene_/$slot$/_light -> `offLight`
-                    52. If `offLight` == `0`  (block 4, else 2)
-                        53. INI: Load Text hue_scenes.ini [hue] ip -> `hueIp`
-                        54. INI: Load Text hue_scenes.ini [hue] key -> `hueKey`
-                        55. INI: Load Text hue_scenes.ini [hue] light -> `hueLightId`
-                        56. INI: Load Text hue_scenes.ini [hue] light_type -> `hueLightType`
-                        57. Set String Variable `hueLightType` = `grouped_light`
-                        58. Set String Variable `hueLightId` = `/$offLight$/`
-                    59. Delete Variable `resp`
-                    60. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":false}}"` -> save as `resp`
-                    61. Wait Until Variable Exists `resp` (timeout 10000 ms)
-                    62. Wait For Timeout 1000 ms
-                    63. Set Local Variable `o` += `1`
-            64. Set Local Variable `done` = `1`
-    65. Break if `done` == `1`
-    66. If `s` >= `nSeq`  (block 20, else 0)
-        67. If `afterLast` == `"loop"`  (block 1, else 18)
-            68. Set Local Variable `s` = `0`
-            69. If `afterLast` == `"off"`  (block 16, else 0)
-                70. Set Local Variable `o` = `0`
-                71. Repeat `nSeq` times  (block 14)
-                    72. Set String Variable `slot` = `/$seq[o]$/`
-                    73. INI: Load Text hue_scenes.ini [hue] scene_/$slot$/_light -> `offLight`
-                    74. If `offLight` == `0`  (block 4, else 2)
-                        75. INI: Load Text hue_scenes.ini [hue] ip -> `hueIp`
-                        76. INI: Load Text hue_scenes.ini [hue] key -> `hueKey`
-                        77. INI: Load Text hue_scenes.ini [hue] light -> `hueLightId`
-                        78. INI: Load Text hue_scenes.ini [hue] light_type -> `hueLightType`
-                        79. Set String Variable `hueLightType` = `grouped_light`
-                        80. Set String Variable `hueLightId` = `/$offLight$/`
-                    81. Delete Variable `resp`
-                    82. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":false}}"` -> save as `resp`
-                    83. Wait Until Variable Exists `resp` (timeout 10000 ms)
-                    84. Wait For Timeout 1000 ms
-                    85. Set Local Variable `o` += `1`
-            86. Set Local Variable `done` = `1`
+8. Set String Variable `fadeMs` = `400`
+9. Comment: END OF SETTINGS.
+10. Stop Button/Group `hueSeq` (ongoing True, queued True, include self False)
+11. INI: Load Text hue_scenes.ini [hue] ip -> `hueIp`
+12. INI: Load Text hue_scenes.ini [hue] key -> `hueKey`
+13. INI: Load Text hue_scenes.ini [hue] light -> `hueLightId`
+14. INI: Load Text hue_scenes.ini [hue] light_type -> `hueLightType`
+15. Parse Array/Object `seq` from `[/$scenes$/]`
+16. Array Get Size `seq` -> `nSeq`
+17. Set Local Variable `stepMs` = `(stepSeconds * 1000)`
+18. Set Local Variable `maxMs` = `(maxMinutes * 60000)`
+19. Set Local Variable `elapsed` = `0`
+20. Set Local Variable `s` = `0`
+21. Set Local Variable `done` = `0`
+22. If `nSeq` == `0`  (block 2, else 0)
+    23. Alert: Hue sequence: 'scenes' is empty. Set it to slot numbers like 1,2.
+    24. Set Local Variable `done` = `1`
+25. If `stepMs` < `1000`  (block 2, else 0)
+    26. Alert: Hue sequence: stepSeconds must be 1 or more.
+    27. Set Local Variable `done` = `1`
+28. Repeat `100000` times  (block 55)
+    29. Break if `done` == `1`
+    30. Set String Variable `slot` = `/$seq[s]$/`
+    31. INI: Load Text hue_scenes.ini [hue] scene_/$slot$/ -> `hueSceneId`
+    32. Set String Variable `resp` = ``
+    33. If `hueSceneId` == `0`  (block 1, else 1)
+        34. Alert: Hue sequence: no scene linked for slot /$slot$/. Run 'Hue: Link Scenes'.
+        35. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource/scene//$hueSceneId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"recall\":{\"action\":\"active\",\"duration\":/$fadeMs$/}}"` -> save as `resp`
+    36. Wait For Timeout stepMs ms
+    37. String Position `errPos` = position of `"description"` in `/$resp$/`
+    38. If `errPos` > `0`  (block 1, else 0)
+        39. Alert: Hue rejected a scene change: /$resp$/
+    40. Set Local Variable `elapsed` += `stepMs`
+    41. Set Local Variable `s` += `1`
+    42. If `maxMs` > `0`  (block 19, else 0)
+        43. If `elapsed` >= `maxMs`  (block 18, else 0)
+            44. If `afterMax` == `"off"`  (block 16, else 0)
+                45. Set Local Variable `o` = `0`
+                46. Repeat `nSeq` times  (block 14)
+                    47. Set String Variable `slot` = `/$seq[o]$/`
+                    48. INI: Load Text hue_scenes.ini [hue] scene_/$slot$/_light -> `offLight`
+                    49. If `offLight` == `0`  (block 4, else 2)
+                        50. INI: Load Text hue_scenes.ini [hue] ip -> `hueIp`
+                        51. INI: Load Text hue_scenes.ini [hue] key -> `hueKey`
+                        52. INI: Load Text hue_scenes.ini [hue] light -> `hueLightId`
+                        53. INI: Load Text hue_scenes.ini [hue] light_type -> `hueLightType`
+                        54. Set String Variable `hueLightType` = `grouped_light`
+                        55. Set String Variable `hueLightId` = `/$offLight$/`
+                    56. Delete Variable `resp`
+                    57. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":false}}"` -> save as `resp`
+                    58. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                    59. Wait For Timeout 1000 ms
+                    60. Set Local Variable `o` += `1`
+            61. Set Local Variable `done` = `1`
+    62. Break if `done` == `1`
+    63. If `s` >= `nSeq`  (block 20, else 0)
+        64. If `afterLast` == `"loop"`  (block 1, else 18)
+            65. Set Local Variable `s` = `0`
+            66. If `afterLast` == `"off"`  (block 16, else 0)
+                67. Set Local Variable `o` = `0`
+                68. Repeat `nSeq` times  (block 14)
+                    69. Set String Variable `slot` = `/$seq[o]$/`
+                    70. INI: Load Text hue_scenes.ini [hue] scene_/$slot$/_light -> `offLight`
+                    71. If `offLight` == `0`  (block 4, else 2)
+                        72. INI: Load Text hue_scenes.ini [hue] ip -> `hueIp`
+                        73. INI: Load Text hue_scenes.ini [hue] key -> `hueKey`
+                        74. INI: Load Text hue_scenes.ini [hue] light -> `hueLightId`
+                        75. INI: Load Text hue_scenes.ini [hue] light_type -> `hueLightType`
+                        76. Set String Variable `hueLightType` = `grouped_light`
+                        77. Set String Variable `hueLightId` = `/$offLight$/`
+                    78. Delete Variable `resp`
+                    79. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":false}}"` -> save as `resp`
+                    80. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                    81. Wait For Timeout 1000 ms
+                    82. Set Local Variable `o` += `1`
+            83. Set Local Variable `done` = `1`
 
 ## Hue: Stop sequence  (`hueStopSequence`)
 
