@@ -29,6 +29,7 @@ The numeric `cmd` is the number in each doc page's `redirect_from: commands/<id>
 | Comment | 6 | b0 text, v0 color index |
 | If Statement | 7 | b0 left, b1 operator, b2 right, v0 block size, v1 else size, v2 condition count; b3…b59 / v3…v22 are the unused extra condition slots (operators default `==`) |
 | Repeat | 9 | b0 count, v0 block size |
+| Break | 11 | b0 left, b1 operator, b2 right, v0 case-insensitive. Leaves the enclosing Repeat. From the docs table; not yet confirmed on hardware |
 | Set Local Variable | 15 | b0 name (`global.x` for globals), b1 operator, b2 value (yellow box) |
 | Create Object | 16 | b0 |
 | Set String Variable | 20 | b0 name, b1 text, v0 relative (append) |
@@ -39,6 +40,7 @@ The numeric `cmd` is the number in each doc page's `redirect_from: commands/<id>
 | Array Get Size | 100 | b0 array, b1 save as |
 | INI: Save Text / Load Text | 126 / 127 | b0 file, b1 section, b2 key, b3 text / save as |
 | Trigger Button | 132 | b0 button id, b1 delay ms |
+| Stop Button/Group | 133 | b0 button or group id (`all` for every button), v0 stop ongoing, v1 stop queued, v2 include self. Checkbox order from the docs table; not yet confirmed on hardware |
 | Overtime | 137 | b0 ms |
 | Popup Message | 141 | b0 text, v0 pause button |
 | Alert Message | 142 | b0 text |
@@ -46,7 +48,7 @@ The numeric `cmd` is the number in each doc page's `redirect_from: commands/<id>
 | Set/Get Object Variable | 165 / 164 | b0 object, b1 key, b2 value / save as |
 | Parse Array/Object | 168 | b0 save as, b1 JSON string |
 | HTTP Request | 169 | b0 url, b1 method, b2 header object name, b3 body JSON, b4 save as |
-| Wait For Timeout | 190 | b0 ms |
+| Wait For Timeout | 190 | b0 ms (yellow box: a bare variable name works, e.g. `stepMs`; `0` waits forever) |
 | Wait For User Input | 214 | b0 message, b1 default, b2 save as |
 | Command Line (current) | 306 | b0 command, b1 save as, plus `"async": 1`. (135 is the deprecated one.) |
 

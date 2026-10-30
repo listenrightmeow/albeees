@@ -96,6 +96,16 @@ def repeat(count, body):
     return Block(cmd(9, b0=count), body)
 
 
+def break_if(left, op, right):
+    """Break (11): leaves the enclosing Repeat when the condition holds. Same boxes as If."""
+    return cmd(11, b0=left, b1=op, b2=right, v0=0.0)
+
+
+def stop_button(bid, ongoing=True, queued=True, include_self=False):
+    """Stop Button/Group (133): stops a button or every button in a group (`bid` may be a group id)."""
+    return cmd(133, b0=bid, v0=float(ongoing), v1=float(queued), v2=float(include_self))
+
+
 def flatten(items):
     out = []
     for it in items:
@@ -150,19 +160,48 @@ def put_light_vars(body_vars):
     return f'{CURL} -X PUT {LIGHT_URL} {AUTH} -d "{_vars_body(body_vars)}"'
 
 
-def light_settings(mode, scene_slot, brightness, color_x, color_y, mirek, fade_ms):
+C1 = {"xy": {"x": "@colorX@", "y": "@colorY@"}}
+C2 = {"xy": {"x": "@colorX2@", "y": "@colorY2@"}}
+
+
+def signal_body(colors):
+    """Hue's signaling takes no colors for on_off, one for on_off_color and two for alternating."""
+    body = {"signal": "/$signal$/", "duration": "@signalMs@"}
+    if colors:
+        body["colors"] = colors
+    return {"signaling": body}
+
+
+def send_signal():
+    return [
+        if_("signal", "==", '"breathe"', send(put_light({"alert": {"action": "breathe"}})), [
+            if_("signal", "==", '"on_off_color"', send(put_light_vars(signal_body([C1]))), [
+                if_("signal", "==", '"alternating"', send(put_light_vars(signal_body([C1, C2]))),
+                    send(put_light_vars(signal_body([])))),
+            ]),
+        ]),
+    ]
+
+
+def light_settings(mode, scene_slot, brightness, color_x, color_y, mirek, fade_ms,
+                   effect="candle", signal="breathe", signal_ms="8000", color_x2="0.1532", color_y2="0.0475"):
     """The editable block at the top of every action button. Numbers are stored as strings so the
     exact text lands in the JSON (GameMaker would otherwise round 0.6915 when printing)."""
     return [
         comment("SETTINGS - edit the values below, nothing else needs to change.\n"
                 "colorMode: 3 = recall a Hue scene (colors are edited in the Hue app; link scenes with 'Hue: Link Scenes'), "
-                "1 = fixed color (uses colorX/colorY), 2 = fixed white temperature (uses whiteMirek)\n"
-                "sceneSlot: which linked scene this button recalls in mode 3 (1 = the slot 'Hue: Link Scenes' fills)\n"
+                "1 = fixed color (uses colorX/colorY), 2 = fixed white temperature (uses whiteMirek), "
+                "4 = light effect (uses effect), 5 = signal (uses signal), 6 = turn the light(s) off\n"
+                "sceneSlot: which linked scene this button recalls in mode 3 (1-4, the slots 'Hue: Link Scenes' fills)\n"
                 "brightness: 1-100 (modes 1 and 2 only)\n"
                 "colorX / colorY: CIE xy color, 0-1 each (red 0.6915/0.3083, green 0.17/0.7, blue 0.1532/0.0475, "
                 "purple 0.2725/0.1096, orange 0.6/0.38, pink 0.45/0.25)\n"
                 "whiteMirek: 153 (cool daylight) to 500 (very warm); 370 = warm white, 250 = neutral\n"
-                "fadeMs: how long the bulb takes to change, in milliseconds (modes 1 and 2)", 2),
+                "fadeMs: how long the bulb takes to change, in milliseconds (modes 1 and 2)\n"
+                "effect (mode 4): candle, fire, prism, sparkle, opal, glisten, underwater, cosmos, sunbeam, enchant, or "
+                "no_effect to stop one. Bulbs only, not rooms or zones; run 'Hue: Try Action' to see what yours support\n"
+                "signal (mode 5): breathe (one pulse), on_off (blinks), on_off_color (blinks colorX/colorY), "
+                "alternating (alternates colorX/colorY and colorX2/colorY2); signalMs = how long, in milliseconds", 2),
         set_local("colorMode", str(mode)),
         set_string("sceneSlot", scene_slot),
         set_string("brightness", str(brightness)),
@@ -170,16 +209,35 @@ def light_settings(mode, scene_slot, brightness, color_x, color_y, mirek, fade_m
         set_string("colorY", str(color_y)),
         set_string("whiteMirek", str(mirek)),
         set_string("fadeMs", str(fade_ms)),
+        set_string("effect", effect),
+        set_string("signal", signal),
+        set_string("signalMs", str(signal_ms)),
+        set_string("colorX2", str(color_x2)),
+        set_string("colorY2", str(color_y2)),
         comment("END OF SETTINGS. The commands below read the variables above.", 2),
     ]
+
+
+def send(command):
+    return [delete_var("resp"), shell(command, "resp"), wait_exists("resp", 10000)]
+
+
+def check_reply(no_reply_hint):
+    return [
+        str_len("respLen", "/$resp$/"),
+        if_("respLen", "==", "0", [alert(f"Hue: no reply from the bridge ({no_reply_hint}). Run Hue 1: Discover, then Hue 4: Test.")]),
+        str_pos("errPos", "/$resp$/", '"description"'),
+        if_("errPos", ">", "0", [alert("Hue rejected the request: /$resp$/")]),
+    ]
+
+
+RECALL = f'{CURL} -X PUT {SCENE_URL} {AUTH} -d "{cmd_json({"recall": {"action": "active"}})}"'
+OFF = put_light({"on": {"on": False}})
 
 
 def apply_light():
     """Send the request that matches colorMode, capture the bridge's reply, and alert on failure so a
     misconfigured button says why instead of silently doing nothing."""
-    recall = f'{CURL} -X PUT {SCENE_URL} {AUTH} -d "{cmd_json({"recall": {"action": "active"}})}"'
-    def send(command):
-        return [delete_var("resp"), shell(command, "resp"), wait_exists("resp", 10000)]
     return [
         set_string("resp", ""),
         if_("colorMode", "==", "1", send(put_light_vars(COLOR_BODY_VARS))),
@@ -189,16 +247,12 @@ def apply_light():
             if_("hueSceneId", "==", "0", [
                 alert("Hue: no scene linked for slot /$sceneSlot$/. Run 'Hue: Link Scenes' first."),
             ]),
-            *send(recall),
+            *send(RECALL),
         ]),
-        str_len("respLen", "/$resp$/"),
-        if_("respLen", "==", "0", [
-            alert("Hue: no reply from the bridge (bridge off, wrong IP, or colorMode is not 1, 2 or 3). Run Hue 1: Discover, then Hue 4: Test."),
-        ]),
-        str_pos("errPos", "/$resp$/", '"description"'),
-        if_("errPos", ">", "0", [
-            alert("Hue rejected the request: /$resp$/"),
-        ]),
+        if_("colorMode", "==", "4", send(put_light({"on": {"on": True}, "effects": {"effect": "/$effect$/"}}))),
+        if_("colorMode", "==", "5", send_signal()),
+        if_("colorMode", "==", "6", send(OFF)),
+        *check_reply("bridge off, wrong IP, or colorMode is not 1 to 6"),
     ]
 
 
@@ -251,9 +305,10 @@ def scenes_grouped_by(groups, count_var, label):
     ]
 
 
-def scene_group_name(num_var, save_var):
-    """Set `save_var` to "Room name (room)" / "Zone name (zone)" for the scene at scenes.data[num_var]."""
-    out = [set_string(save_var, "unknown room")]
+def scene_group_name(num_var, save_var, light_var):
+    """Set `save_var` to "Room name (room)" / "Zone name (zone)" for the scene at scenes.data[num_var], and
+    `light_var` to that room/zone's grouped_light id (what a sequence turns off), or 0 if not found."""
+    out = [set_string(save_var, "unknown room"), set_string(light_var, "0")]
     for groups, label in (("rooms", "room"), ("zones", "zone")):
         out += [
             set_local("r", "0"),
@@ -261,6 +316,7 @@ def scene_group_name(num_var, save_var):
                 str_pos("same", f"/$scenes.data[{num_var}].group.rid$/", f"/${groups}.data[r].id$/"),
                 if_("same", ">", "0", [
                     set_string(save_var, f"/${groups}.data[r].metadata.name$/ ({label})"),
+                    set_string(light_var, f"/${groups}.data[r].services[0].rid$/"),
                 ]),
                 set_local("r", "1", op="+="),
             ]),
@@ -270,7 +326,7 @@ def scene_group_name(num_var, save_var):
 
 LOAD_ALL = lambda: [ini_load("ip", "hueIp"), ini_load("key", "hueKey"),
                     ini_load("light", "hueLightId"), ini_load("light_type", "hueLightType")]
-SCENE_SLOTS = [("1", "Scene 1")]   # one example slot; add ("2", "Scene 2") etc. and a matching action button for more
+SCENE_SLOTS = [(str(i), f"Scene {i}") for i in range(1, 5)]   # 'Hue: Link Scenes' fills these; buttons and sequences refer to them by number
 
 
 def discovery(silent):
@@ -298,7 +354,7 @@ def discovery(silent):
 # ----------------------------------------------------------------------------
 # buttons
 # ----------------------------------------------------------------------------
-def button(bid, text, x, y, color, commands, triggers=(), w=0.25, h=0.125, queueable=False, persistent=False):
+def button(bid, text, x, y, color, commands, triggers=(), w=0.25, h=0.125, queueable=False, persistent=False, group=""):
     cmds = number(flatten(commands))
     trg = [dict(t, button_id=bid) for t in triggers]
     functions = (1 if cmds else 0) + (16 if trg else 0) + (64 if persistent else 0) + (128 if queueable else 0)
@@ -306,7 +362,7 @@ def button(bid, text, x, y, color, commands, triggers=(), w=0.25, h=0.125, queue
         "color": color, "persistent": 1.0 if persistent else 0.0, "text": text,
         "release_duration": 0.0, "queueable": 1.0 if queueable else 0.0,
         "command_list": cmds, "press_type": 0.0, "x": x, "border": 2.0, "image": "",
-        "triggers": trg, "group_id": "", "overlappable": 0.0, "init_variable": "",
+        "triggers": trg, "group_id": group, "overlappable": 0.0, "init_variable": "",
         "deck": 0.0, "width": w, "button_id": bid, "button_duration": 0.0, "y": y,
         "switch_deck": "", "height": h, "release_list": [], "functions": float(functions),
         "stretch": 0.0, "is_transparent": 0.0,
@@ -317,21 +373,203 @@ STARTUP_TRIGGER = {"trg": 10.0, "type": "SAMMI Startup", "group_id": ""}
 
 
 def action_button(bid, text, x, color, *, mode=3, scene_slot, brightness=100,
-                 color_x="0.6915", color_y="0.3083", mirek="370", fade_ms="300"):
+                 color_x="0.6915", color_y="0.3083", mirek="370", fade_ms="300", y=0.5, **extra):
     """An action button with no trigger of its own. The user attaches whatever SAMMI trigger they
     like (right-click > Edit Triggers): a chat command, a redeem, a tip alert, a hotkey, a timer.
     Two examples ship: one that recalls a Hue scene (mode 3) and one with a raw color (mode 1)."""
-    return button(bid, text, x, 0.5, color, [
+    return button(bid, text, x, y, color, [
         comment("ACTION BUTTON. Attach any trigger to it: right-click the button > Edit Triggers. "
                 "When it fires it reads the bridge settings from the ini file, sends one request to the bridge, "
                 "then holds the button 1 s so bursts of events stay under Hue's rate limit "
                 "(1 command/s for rooms, zones and scenes). Events that arrive meanwhile queue up and run in order.", 1),
-        *light_settings(mode, scene_slot, brightness, color_x, color_y, mirek, fade_ms),
+        *light_settings(mode, scene_slot, brightness, color_x, color_y, mirek, fade_ms, **extra),
         *LOAD_ALL(),
         *apply_light(),
         overtime(1000),
         trigger_button("hueReset", 10000, disabled=True),   # optional: turn "Off" to enable the 10 s auto-reset
     ], queueable=True)
+
+
+# Fixed choices offered by 'Hue: Try Action' ahead of whatever the target itself reports.
+TRY_COLORS = [("red", "0.6915", "0.3083"), ("orange", "0.6", "0.38"), ("yellow", "0.46", "0.47"),
+              ("green", "0.17", "0.7"), ("cyan", "0.17", "0.34"), ("blue", "0.1532", "0.0475"),
+              ("purple", "0.2725", "0.1096"), ("pink", "0.45", "0.25")]
+TRY_WHITES = [("warm white", "370"), ("neutral white", "250"), ("cool white", "153")]
+
+
+def try_action():
+    """Lists what the Hue 3 target supports (asked from the bridge, so nothing is assumed) plus fixed
+    colors, whites, on and off; sends the one picked and says how to put it on an action button."""
+    fixed = ([(f"color: {n}", {"on": {"on": True}, "dimming": {"brightness": 100}, "color": {"xy": {"x": float(x), "y": float(y)}}},
+               f"colorMode 1, colorX {x}, colorY {y}") for n, x, y in TRY_COLORS]
+             + [(f"white: {n}", {"on": {"on": True}, "dimming": {"brightness": 100}, "color_temperature": {"mirek": int(m)}},
+                 f"colorMode 2, whiteMirek {m}") for n, m in TRY_WHITES]
+             + [("turn on", {"on": {"on": True}}, "turn on (any colorMode except 6 also turns the light on)"),
+                ("turn off", {"on": {"on": False}}, "colorMode 6")])
+    n_fixed = len(fixed)
+    listing_lines = "".join(f"{i} = {label}\n" for i, (label, _, _) in enumerate(fixed))
+    sections = [  # (marker in the reply, array path, label, count var)
+        ('"alert"', "t.data[0].alert.action_values", "alert", "nA"),
+        ('"signaling"', "t.data[0].signaling.signal_values", "signal", "nS"),
+        ('"effects"', "t.data[0].effects.effect_values", "effect", "nE"),
+        ('"timed_effects"', "t.data[0].timed_effects.effect_values", "timed effect", "nT"),
+    ]
+    build = []
+    for marker, path, label, count in sections:
+        build += [
+            set_local(count, "0"),
+            str_pos("has", "/$resp$/", marker),
+            if_("has", ">", "0", [arr_size(path, count)]),
+            set_local("i", "0"),
+            repeat(count, [
+                set_string("list", f"/$k$/ = {label}: /${path}[i]$/\n", rel=True),
+                set_local("i", "1", op="+="),
+                set_local("k", "1", op="+="),
+            ]),
+        ]
+    fixed_ifs = [if_("pickNum", "==", str(i), [*send(put_light(body)), set_string("hint", hint)])
+                 for i, (_, body, hint) in enumerate(fixed)]
+    return [
+        comment("Asks the bridge what the Hue 3 target supports, lists it in Notepad with a few fixed colors, "
+                "and sends the one you pick. Effects exist on bulbs only; a room or zone lists alerts and signals.", 1),
+        *LOAD_ALL(),
+        *send(f'{CURL} {LIGHT_URL} -H "hue-application-key: /$hueKey$/"'),
+        str_pos("okPos", "/$resp$/", '"data"'),
+        if_("okPos", ">", "0", [
+            parse("t", "/$resp$/"),
+            set_string("list", listing_lines),
+            set_local("k", str(n_fixed)),
+            *build,
+            *show_list("Actions for the Hue 3 target (colors and whites are fixed; the rest is what the bridge says this target supports). "
+                       "Type the number into SAMMI."),
+            wait_input("A Notepad window just opened listing the actions this target supports (file hue_scenes_list.txt).\n\n"
+                       "Type the NUMBER of the action to try, then click OK.", "0", "pick"),
+            str_to_num("pickNum", "pick"),
+            set_string("hint", ""),
+            *fixed_ifs,
+            set_local("kind", "0"),
+            set_local("b1", str(n_fixed)),
+            set_local("b2", f"({n_fixed} + nA)"),
+            set_local("b3", f"({n_fixed} + nA + nS)"),
+            set_local("b4", f"({n_fixed} + nA + nS + nE)"),
+            set_local("b5", f"({n_fixed} + nA + nS + nE + nT)"),
+            if_("pickNum", ">=", "b1", [set_local("kind", "1"), set_local("idx", "(pickNum - b1)")]),
+            if_("pickNum", ">=", "b2", [set_local("kind", "2"), set_local("idx", "(pickNum - b2)")]),
+            if_("pickNum", ">=", "b3", [set_local("kind", "3"), set_local("idx", "(pickNum - b3)")]),
+            if_("pickNum", ">=", "b4", [set_local("kind", "4"), set_local("idx", "(pickNum - b4)")]),
+            if_("pickNum", ">=", "b5", [set_local("kind", "0"), alert("Hue: /$pick$/ is not on the list.")]),
+            if_("kind", "==", "1", [
+                set_string("val", "/$t.data[0].alert.action_values[idx]$/"),
+                *send(put_light({"alert": {"action": "/$val$/"}})),
+                set_string("hint", "colorMode 5, signal breathe"),
+            ]),
+            if_("kind", "==", "2", [
+                set_string("signal", "/$t.data[0].signaling.signal_values[idx]$/"),
+                set_string("signalMs", "8000"),
+                set_string("colorX", "0.6915"), set_string("colorY", "0.3083"),
+                set_string("colorX2", "0.1532"), set_string("colorY2", "0.0475"),
+                *send_signal(),
+                set_string("hint", "colorMode 5, signal /$signal$/ (8 s here; on_off_color uses red, alternating red and blue)"),
+            ]),
+            if_("kind", "==", "3", [
+                set_string("val", "/$t.data[0].effects.effect_values[idx]$/"),
+                *send(put_light({"on": {"on": True}, "effects": {"effect": "/$val$/"}})),
+                set_string("hint", "colorMode 4, effect /$val$/ (it keeps running until another action or no_effect)"),
+            ]),
+            if_("kind", "==", "4", [
+                set_string("val", "/$t.data[0].timed_effects.effect_values[idx]$/"),
+                *send(put_light({"timed_effects": {"effect": "/$val$/", "duration": 60000}})),
+                set_string("hint", "a timed effect (1 minute here); action buttons do not have a mode for it yet"),
+            ]),
+            *check_reply("bridge off or wrong IP"),
+            str_len("hintLen", "/$hint$/"),
+            if_("hintLen", ">", "0", [
+                alert("Sent. To put this on an action button, copy an Example button and set: /$hint$/"),
+            ]),
+        ], [
+            popup("Could not read the target.\n\nBridge said: /$resp$/\n\n"
+                  "Run Hue 3: Pick Target first. 'unauthorized user' = run Hue 2: Pair again."),
+        ]),
+    ]
+
+
+SEQ_GROUP = "hueSeq"
+
+
+def turn_off_sequence_rooms():
+    """Turns off the room/zone of every scene in the sequence (rooms are rate limited to 1/s), falling
+    back to the Hue 3 target for a slot linked before rooms were recorded."""
+    return [
+        set_local("o", "0"),
+        repeat("nSeq", [
+            set_string("slot", "/$seq[o]$/"),
+            ini_load("scene_/$slot$/_light", "offLight"),
+            if_("offLight", "==", "0", [*LOAD_ALL()], [
+                set_string("hueLightType", "grouped_light"),
+                set_string("hueLightId", "/$offLight$/"),
+            ]),
+            *send(OFF),
+            wait_ms("1000"),
+            set_local("o", "1", op="+="),
+        ]),
+    ]
+
+
+def sequence_button(bid, text, x, y, color, *, scenes="1,2", step_seconds="30", after_last="loop",
+                    max_minutes="0", after_max="off"):
+    """Plays linked scenes one after another inside one long button run; Hue has no sequences or
+    timers of its own. Starting a sequence stops any other one, and 'Hue: Stop sequence' stops it."""
+    return button(bid, text, x, y, color, [
+        comment("SCENE SEQUENCE. Attach any trigger (right-click > Edit Triggers). Plays the linked scenes in "
+                "'scenes' order, each for stepSeconds, then does afterLast. Starting it stops any other running sequence.", 1),
+        comment("SETTINGS - edit the values below.\n"
+                "scenes: slot numbers from 'Hue: Link Scenes', comma separated, played in this order (e.g. 1,2,3; one slot is fine)\n"
+                "stepSeconds: how long each scene stays on (1 or more)\n"
+                "afterLast: \"loop\" = start again from the first scene (until stopped or maxMinutes), "
+                "\"off\" = turn the scenes' rooms off and stop, \"stay\" = leave the last scene on and stop\n"
+                "maxMinutes: stop after this many minutes in total; 0 = no limit\n"
+                "afterMax: what to do when maxMinutes is reached: \"off\" or \"stay\"", 2),
+        set_string("scenes", scenes),
+        set_local("stepSeconds", step_seconds),
+        set_string("afterLast", after_last),
+        set_local("maxMinutes", max_minutes),
+        set_string("afterMax", after_max),
+        comment("END OF SETTINGS.", 2),
+        stop_button(SEQ_GROUP, ongoing=True, queued=True, include_self=False),
+        *LOAD_ALL(),
+        parse("seq", "[/$scenes$/]"),
+        arr_size("seq", "nSeq"),
+        set_local("stepMs", "(stepSeconds * 1000)"),
+        set_local("maxMs", "(maxMinutes * 60000)"),
+        set_local("elapsed", "0"),
+        set_local("s", "0"),
+        set_local("done", "0"),
+        if_("nSeq", "==", "0", [alert("Hue sequence: 'scenes' is empty. Set it to slot numbers like 1,2."), set_local("done", "1")]),
+        if_("stepMs", "<", "1000", [alert("Hue sequence: stepSeconds must be 1 or more."), set_local("done", "1")]),
+        repeat("100000", [
+            break_if("done", "==", "1"),
+            set_string("slot", "/$seq[s]$/"),
+            ini_load("scene_/$slot$/", "hueSceneId"),
+            if_("hueSceneId", "==", "0", [alert("Hue sequence: no scene linked for slot /$slot$/. Run 'Hue: Link Scenes'.")],
+                [*send(RECALL), *check_reply("bridge off or wrong IP")]),
+            wait_ms("stepMs"),
+            set_local("elapsed", "stepMs", op="+="),
+            set_local("s", "1", op="+="),
+            if_("maxMs", ">", "0", [
+                if_("elapsed", ">=", "maxMs", [
+                    if_("afterMax", "==", '"off"', turn_off_sequence_rooms()),
+                    set_local("done", "1"),
+                ]),
+            ]),
+            break_if("done", "==", "1"),
+            if_("s", ">=", "nSeq", [
+                if_("afterLast", "==", '"loop"', [set_local("s", "0")], [
+                    if_("afterLast", "==", '"off"', turn_off_sequence_rooms()),
+                    set_local("done", "1"),
+                ]),
+            ]),
+        ]),
+    ], group=SEQ_GROUP)
 
 
 BUTTONS = [
@@ -513,19 +751,21 @@ BUTTONS = [
                            f"Which scene should **{label}** recall? Type its NUMBER, or -1 to leave this one unchanged.", "-1", f"pick_{slot}"),
                 str_to_num(f"num{slot}", f"pick_{slot}"),
                 if_(f"num{slot}", ">=", "0", [
-                    *scene_group_name(f"num{slot}", "groupName"),
+                    *scene_group_name(f"num{slot}", "groupName", "groupLight"),
                     ini_save(f"scene_{slot}", f"/$scenes.data[num{slot}].id$/"),
+                    ini_save(f"scene_{slot}_light", "/$groupLight$/"),
                     ini_save(f"scene_{slot}_name", f"/$scenes.data[num{slot}].metadata.name$/ in /$groupName$/"),
                     alert(f"{label} -> scene '/$scenes.data[num{slot}].metadata.name$/' in /$groupName$/. "
                           "Recalling it changes every light in that room/zone, whatever Hue 3 picked."),
                 ]),
             ]],
-            alert("Scene link saved. Check it with Hue: Show Settings, then run 'Example: Hue scene'."),
+            alert("Scene links saved. Check them with Hue: Show Settings, then run 'Example: Hue scene' or 'Example: scene sequence'."),
         ], [
             popup("Could not list the scenes.\n\nBridge said: /$resp$/\n\n"
                   "'unauthorized user' = run Hue 2: Pair again. Empty = wrong IP or bridge off."),
         ]),
     ]),
+    button("hueTryAction", "Hue: Try\nAction", 0.5, 0.25, TEAL, try_action()),
     button("hueStartup", "Hue: Auto\nrediscover", 0.0, 0.25, DARK, [
         comment("Runs by itself when SAMMI starts (SAMMI Startup trigger). Waits 15 s for the network, then refreshes the "
                 "bridge IP in case the router handed out a new one. Safe to leave alone.", 2),
@@ -537,12 +777,14 @@ BUTTONS = [
               "Setup once: Hue 1 Discover > Hue 2 Pair (press bridge button) > Hue 3 Pick Target (a bulb, a room or a zone) "
               "> Hue 4 Test > Hue: Link Scenes (pick the Hue-app scene the example scene button recalls).\n"
               "Settings live in the ini file in the SAMMI folder, so they survive restarts.\n\n"
-              "The bottom row holds two example action buttons with no trigger attached. Attach any trigger to them "
-              "(right-click > Edit Triggers), or copy them to make more.\n"
-              "'Example: Hue scene' recalls the scene linked with Hue: Link Scenes, so you change its look in the Hue app. "
-              "A scene always acts on the lights of its own room/zone, not on the Hue 3 target.\n"
-              "'Example: raw color (red)' sets a fixed color from its SETTINGS block (right-click > Edit Commands): "
-              "colorMode 1 = xy color, 2 = white temperature, 3 = Hue scene.\n\n"
+              "Not sure what your lights can do? 'Hue: Try Action' lists what the Hue 3 target supports (colors, whites, "
+              "breathe, signals, effects like candle or fire) and sends the one you pick.\n\n"
+              "The bottom rows hold example buttons with no trigger attached. Attach any trigger to them "
+              "(right-click > Edit Triggers), or copy them to make more. Each has a SETTINGS block at the top "
+              "(right-click > Edit Commands): colorMode 1 = xy color, 2 = white, 3 = Hue scene, 4 = effect, 5 = signal/breathe, 6 = off.\n"
+              "A scene always acts on the lights of its own room/zone, not on the Hue 3 target. Link up to 4 scenes with Hue: Link Scenes.\n"
+              "'Example: scene sequence' plays linked scenes in order for a set time each, then loops, turns off or stays; "
+              "maxMinutes caps the total. 'Hue: Stop sequence' stops it.\n\n"
               "Lights stopped reacting? Click Hue 1: Discover, then Hue 4: Test.", pause=False),
     ]),
 
@@ -551,12 +793,23 @@ BUTTONS = [
                   scene_slot="1"),                                                        # mode 3: recalls the linked scene
     action_button("hueColorRed", "Example:\nraw color (red)", 0.25, RED,
                   mode=1, scene_slot="1", brightness=100, color_x="0.6915", color_y="0.3083"),
+    action_button("hueEffect", "Example:\neffect (candle)", 0.75, WARM, mode=4, scene_slot="1", effect="candle"),
     button("hueReset", "Reset\n(optional)", 0.5, 0.5, GRAY, [
         comment("Restores neutral white. Not triggered by anything unless you enable the disabled "
                 "'Trigger Button' command at the end of each action button (10 s delay).", 1),
         *light_settings(2, "1", 60, "0.3127", "0.3290", "250", "1000"),
         *LOAD_ALL(),
         *apply_light(),
+    ]),
+
+    # --- row 5: off and scene sequences ------------------------------------------------------------------------
+    action_button("hueOff", "Example:\nturn off", 0.0, DARK, mode=6, scene_slot="1", y=0.625),
+    sequence_button("hueSequence", "Example:\nscene sequence", 0.25, 0.625, BLUE),
+    button("hueStopSequence", "Hue: Stop\nsequence", 0.5, 0.625, GRAY, [
+        comment("Stops every running scene sequence (button group 'hueSeq'). The lights stay as they are; "
+                "add an 'Example: turn off' trigger after it if you want them off.", 1),
+        stop_button(SEQ_GROUP, ongoing=True, queued=True, include_self=False),
+        alert("Hue: scene sequence stopped."),
     ]),
 ]
 
@@ -568,7 +821,7 @@ NAMES = {83: "String Get Length", 255: "File: Append Text", 227: "File: Delete F
          153: "Wait Until Variable Exists", 190: "Wait For Timeout", 168: "Parse Array/Object", 15: "Set Local Variable",
          20: "Set String Variable", 91: "String Position", 126: "INI: Save Text", 127: "INI: Load Text",
          214: "Wait For User Input", 79: "String to Number", 100: "Array Get Size", 137: "Overtime",
-         169: "HTTP Request", 132: "Trigger Button", 7: "If", 9: "Repeat"}
+         169: "HTTP Request", 132: "Trigger Button", 7: "If", 9: "Repeat", 11: "Break", 133: "Stop Button/Group"}
 
 
 def describe(c):
@@ -599,13 +852,15 @@ def describe(c):
     if i == 132: return f"Trigger Button `{b(0)}` after {b(1)} ms"
     if i == 7:   return f"If `{b(0)}` {b(1)} `{b(2)}`  (block {int(c['v0'])}, else {int(c.get('v1', 0))})"
     if i == 9:   return f"Repeat `{b(0)}` times  (block {int(c['v0'])})"
+    if i == 11:  return f"Break if `{b(0)}` {b(1)} `{b(2)}`"
+    if i == 133: return f"Stop Button/Group `{b(0)}` (ongoing {bool(c.get('v0'))}, queued {bool(c.get('v1'))}, include self {bool(c.get('v2'))})"
     return f"cmd {i}"
 
 
 def listing(buttons):
     lines = [f"# {DECK_NAME} deck, command listing", "",
              "Generated by `tools/build_deck.py`. Paste `deck/HueScenes.deck.json` into SAMMI with side menu > Paste Deck.",
-             f"Settings file: `{INI}` in the SAMMI folder, section `[{SEC}]`, keys `ip`, `key`, `light`, `light_type`, `light_name`, `scene_<slot>`.", ""]
+             f"Settings file: `{INI}` in the SAMMI folder, section `[{SEC}]`, keys `ip`, `key`, `light`, `light_type`, `light_name`, `group_id`, `scene_<slot>`, `scene_<slot>_name`, `scene_<slot>_light`.", ""]
     for bt in buttons:
         lines.append(f"## {bt['text'].replace(chr(10), ' ')}  (`{bt['button_id']}`)")
         for t in bt["triggers"]:
