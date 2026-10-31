@@ -40,77 +40,83 @@ Settings file: `hue_scenes.ini` in the SAMMI folder, section `[hue]`, keys `ip`,
 5. Command Line: `curl.exe -sk -m 8 "https:///$hueIp$//clip/v2/resource/light" -H "hue-application-key: /$hueKey$/"` -> save as `resp`
 6. Wait Until Variable Exists `resp` (timeout 10000 ms)
 7. String Position `okPos` = position of `"data"` in `/$resp$/`
-8. If `okPos` > `0`  (block 69, else 1)
+8. If `okPos` > `0`  (block 75, else 1)
     9. Parse Array/Object `lights` from `/$resp$/`
     10. Delete Variable `resp2`
     11. Command Line: `curl.exe -sk -m 8 "https:///$hueIp$//clip/v2/resource/room" -H "hue-application-key: /$hueKey$/"` -> save as `resp2`
     12. Wait Until Variable Exists `resp2` (timeout 10000 ms)
-    13. Parse Array/Object `rooms` from `/$resp2$/`
-    14. Delete Variable `resp3`
-    15. Command Line: `curl.exe -sk -m 8 "https:///$hueIp$//clip/v2/resource/zone" -H "hue-application-key: /$hueKey$/"` -> save as `resp3`
-    16. Wait Until Variable Exists `resp3` (timeout 10000 ms)
-    17. Parse Array/Object `zones` from `/$resp3$/`
-    18. Array Get Size `lights.data` -> `nL`
-    19. Array Get Size `rooms.data` -> `nR`
-    20. Array Get Size `zones.data` -> `nZ`
-    21. Set Local Variable `k` = `0`
-    22. Set String Variable `list` = ``
-    23. Set Local Variable `i` = `0`
-    24. Repeat `nL` times  (block 3)
-        25. Set String Variable `list` += `/$k$/ = /$lights.data[i].metadata.name$/   (bulb) / `
-        26. Set Local Variable `i` += `1`
-        27. Set Local Variable `k` += `1`
-    28. Set Local Variable `i` = `0`
-    29. Repeat `nR` times  (block 3)
-        30. Set String Variable `list` += `/$k$/ = /$rooms.data[i].metadata.name$/   (room, every bulb in it) / `
-        31. Set Local Variable `i` += `1`
-        32. Set Local Variable `k` += `1`
-    33. Set Local Variable `i` = `0`
-    34. Repeat `nZ` times  (block 3)
-        35. Set String Variable `list` += `/$k$/ = /$zones.data[i].metadata.name$/   (zone, every bulb in it) / `
-        36. Set Local Variable `i` += `1`
-        37. Set Local Variable `k` += `1`
-    38. File: Delete File `hue_scenes_list.txt`
-    39. File: Append Text to `hue_scenes_list.txt`: Bulbs, rooms and zones on this bridge. Type the number of the one the action buttons should control into SAMMI. /  / /$list$/
-    40. Command Line: `start "" notepad.exe "hue_scenes_list.txt"`
-    41. Wait For User Input -> `pick` (default `0`): A Notepad window just opened listing every bulb, room and zone (file hue_scenes_list.txt in the SAMMI folder). /  / Type the NUMBER the action buttons should control, then click OK.
-    42. String to Number `pickNum` from `pick`
-    43. Set Local Variable `kind` = `9`
-    44. Set Local Variable `idx` = `pickNum`
-    45. If `pickNum` >= `0`  (block 1, else 0)
-        46. Set Local Variable `kind` = `0`
-    47. If `pickNum` >= `nL`  (block 2, else 0)
-        48. Set Local Variable `kind` = `1`
-        49. Set Local Variable `idx` = `(pickNum - nL)`
-    50. If `pickNum` >= `(nL + nR)`  (block 2, else 0)
-        51. Set Local Variable `kind` = `2`
-        52. Set Local Variable `idx` = `(pickNum - nL - nR)`
-    53. If `pickNum` >= `(nL + nR + nZ)`  (block 1, else 0)
-        54. Set Local Variable `kind` = `9`
-    55. If `kind` == `9`  (block 1, else 0)
-        56. Alert: Hue: '/$pick$/' is not on the list. Nothing was changed; run Hue 3 again.
-    57. If `kind` == `0`  (block 5, else 0)
-        58. INI: Save Text hue_scenes.ini [hue] light = `/$lights.data[idx].id$/`
-        59. INI: Save Text hue_scenes.ini [hue] light_type = `light`
-        60. INI: Save Text hue_scenes.ini [hue] light_name = `/$lights.data[idx].metadata.name$/ (bulb)`
-        61. INI: Save Text hue_scenes.ini [hue] group_id = `none`
-        62. INI: Save Text hue_scenes.ini [hue] group_kind = `none`
-    63. If `kind` == `1`  (block 5, else 0)
-        64. INI: Save Text hue_scenes.ini [hue] light = `/$rooms.data[idx].services[0].rid$/`
-        65. INI: Save Text hue_scenes.ini [hue] light_type = `grouped_light`
-        66. INI: Save Text hue_scenes.ini [hue] light_name = `/$rooms.data[idx].metadata.name$/ (room)`
-        67. INI: Save Text hue_scenes.ini [hue] group_id = `/$rooms.data[idx].id$/`
-        68. INI: Save Text hue_scenes.ini [hue] group_kind = `room`
-    69. If `kind` == `2`  (block 5, else 0)
-        70. INI: Save Text hue_scenes.ini [hue] light = `/$zones.data[idx].services[0].rid$/`
+    13. Set Local Variable `nR` = `0`
+    14. String Position `okrooms` = position of `"data"` in `/$resp2$/`
+    15. If `okrooms` > `0`  (block 2, else 0)
+        16. Parse Array/Object `rooms` from `/$resp2$/`
+        17. Array Get Size `rooms.data` -> `nR`
+    18. Delete Variable `resp3`
+    19. Command Line: `curl.exe -sk -m 8 "https:///$hueIp$//clip/v2/resource/zone" -H "hue-application-key: /$hueKey$/"` -> save as `resp3`
+    20. Wait Until Variable Exists `resp3` (timeout 10000 ms)
+    21. Set Local Variable `nZ` = `0`
+    22. String Position `okzones` = position of `"data"` in `/$resp3$/`
+    23. If `okzones` > `0`  (block 2, else 0)
+        24. Parse Array/Object `zones` from `/$resp3$/`
+        25. Array Get Size `zones.data` -> `nZ`
+    26. Array Get Size `lights.data` -> `nL`
+    27. Set Local Variable `k` = `0`
+    28. Set String Variable `list` = ``
+    29. Set Local Variable `i` = `0`
+    30. Repeat `nL` times  (block 3)
+        31. Set String Variable `list` += `/$k$/ = /$lights.data[i].metadata.name$/   (bulb) / `
+        32. Set Local Variable `i` += `1`
+        33. Set Local Variable `k` += `1`
+    34. Set Local Variable `i` = `0`
+    35. Repeat `nR` times  (block 3)
+        36. Set String Variable `list` += `/$k$/ = /$rooms.data[i].metadata.name$/   (room, every bulb in it) / `
+        37. Set Local Variable `i` += `1`
+        38. Set Local Variable `k` += `1`
+    39. Set Local Variable `i` = `0`
+    40. Repeat `nZ` times  (block 3)
+        41. Set String Variable `list` += `/$k$/ = /$zones.data[i].metadata.name$/   (zone, every bulb in it) / `
+        42. Set Local Variable `i` += `1`
+        43. Set Local Variable `k` += `1`
+    44. File: Delete File `hue_scenes_list.txt`
+    45. File: Append Text to `hue_scenes_list.txt`: Bulbs, rooms and zones on this bridge. Type the number of the one the action buttons should control into SAMMI. /  / /$list$/
+    46. Command Line: `start "" notepad.exe "hue_scenes_list.txt"`
+    47. Wait For User Input -> `pick` (default `0`): A Notepad window just opened listing every bulb, room and zone (file hue_scenes_list.txt in the SAMMI folder). /  / Type the NUMBER the action buttons should control, then click OK.
+    48. String to Number `pickNum` from `pick`
+    49. Set Local Variable `kind` = `9`
+    50. Set Local Variable `idx` = `pickNum`
+    51. If `pickNum` >= `0`  (block 1, else 0)
+        52. Set Local Variable `kind` = `0`
+    53. If `pickNum` >= `nL`  (block 2, else 0)
+        54. Set Local Variable `kind` = `1`
+        55. Set Local Variable `idx` = `(pickNum - nL)`
+    56. If `pickNum` >= `(nL + nR)`  (block 2, else 0)
+        57. Set Local Variable `kind` = `2`
+        58. Set Local Variable `idx` = `(pickNum - nL - nR)`
+    59. If `pickNum` >= `(nL + nR + nZ)`  (block 1, else 0)
+        60. Set Local Variable `kind` = `9`
+    61. If `kind` == `9`  (block 1, else 0)
+        62. Alert: Hue: '/$pick$/' is not on the list. Nothing was changed; run Hue 3 again.
+    63. If `kind` == `0`  (block 5, else 0)
+        64. INI: Save Text hue_scenes.ini [hue] light = `/$lights.data[idx].id$/`
+        65. INI: Save Text hue_scenes.ini [hue] light_type = `light`
+        66. INI: Save Text hue_scenes.ini [hue] light_name = `/$lights.data[idx].metadata.name$/ (bulb)`
+        67. INI: Save Text hue_scenes.ini [hue] group_id = `none`
+        68. INI: Save Text hue_scenes.ini [hue] group_kind = `none`
+    69. If `kind` == `1`  (block 5, else 0)
+        70. INI: Save Text hue_scenes.ini [hue] light = `/$rooms.data[idx].services[0].rid$/`
         71. INI: Save Text hue_scenes.ini [hue] light_type = `grouped_light`
-        72. INI: Save Text hue_scenes.ini [hue] light_name = `/$zones.data[idx].metadata.name$/ (zone)`
-        73. INI: Save Text hue_scenes.ini [hue] group_id = `/$zones.data[idx].id$/`
-        74. INI: Save Text hue_scenes.ini [hue] group_kind = `zone`
-    75. If `kind` != `9`  (block 2, else 0)
-        76. INI: Load Text hue_scenes.ini [hue] light_name -> `hueLightName`
-        77. Alert: Action buttons will control '/$hueLightName$/' (saved to the ini file)
-    78. Popup (pauses button): Could not list the lights. /  / Bridge said: /$resp$/ /  / 'unauthorized user' = run Hue 2: Pair again. Empty = wrong IP or bridge off.
+        72. INI: Save Text hue_scenes.ini [hue] light_name = `/$rooms.data[idx].metadata.name$/ (room)`
+        73. INI: Save Text hue_scenes.ini [hue] group_id = `/$rooms.data[idx].id$/`
+        74. INI: Save Text hue_scenes.ini [hue] group_kind = `room`
+    75. If `kind` == `2`  (block 5, else 0)
+        76. INI: Save Text hue_scenes.ini [hue] light = `/$zones.data[idx].services[0].rid$/`
+        77. INI: Save Text hue_scenes.ini [hue] light_type = `grouped_light`
+        78. INI: Save Text hue_scenes.ini [hue] light_name = `/$zones.data[idx].metadata.name$/ (zone)`
+        79. INI: Save Text hue_scenes.ini [hue] group_id = `/$zones.data[idx].id$/`
+        80. INI: Save Text hue_scenes.ini [hue] group_kind = `zone`
+    81. If `kind` != `9`  (block 2, else 0)
+        82. INI: Load Text hue_scenes.ini [hue] light_name -> `hueLightName`
+        83. Alert: Action buttons will control '/$hueLightName$/' (saved to the ini file)
+    84. Popup (pauses button): Could not list the lights. /  / Bridge said: /$resp$/ /  / 'unauthorized user' = run Hue 2: Pair again. Empty = wrong IP or bridge off.
 
 ## Hue 4: Test  (`hueTest`)
 
@@ -163,179 +169,185 @@ Settings file: `hue_scenes.ini` in the SAMMI folder, section `[hue]`, keys `ip`,
 5. Command Line: `curl.exe -sk -m 8 "https:///$hueIp$//clip/v2/resource/scene" -H "hue-application-key: /$hueKey$/"` -> save as `resp`
 6. Wait Until Variable Exists `resp` (timeout 10000 ms)
 7. String Position `okPos` = position of `"data"` in `/$resp$/`
-8. If `okPos` > `0`  (block 171, else 1)
+8. If `okPos` > `0`  (block 177, else 1)
     9. Parse Array/Object `scenes` from `/$resp$/`
     10. Array Get Size `scenes.data` -> `n`
     11. Delete Variable `resp2`
     12. Command Line: `curl.exe -sk -m 8 "https:///$hueIp$//clip/v2/resource/room" -H "hue-application-key: /$hueKey$/"` -> save as `resp2`
     13. Wait Until Variable Exists `resp2` (timeout 10000 ms)
-    14. Parse Array/Object `rooms` from `/$resp2$/`
-    15. Delete Variable `resp3`
-    16. Command Line: `curl.exe -sk -m 8 "https:///$hueIp$//clip/v2/resource/zone" -H "hue-application-key: /$hueKey$/"` -> save as `resp3`
-    17. Wait Until Variable Exists `resp3` (timeout 10000 ms)
-    18. Parse Array/Object `zones` from `/$resp3$/`
-    19. Array Get Size `rooms.data` -> `nR`
-    20. Array Get Size `zones.data` -> `nZ`
-    21. INI: Load Text hue_scenes.ini [hue] group_id -> `hueGroupId`
-    22. Wait For User Input -> `filter` (default ``): Found /$n$/ scenes on this bridge. /  / Type part of a scene name to narrow the list (capitals do not matter), or leave this empty to list every scene, then click OK.
-    23. String Get Length `filterLen` of `/$filter$/`
-    24. Set Local Variable `shown` = `0`
-    25. Set String Variable `list` = ``
-    26. Set Local Variable `r` = `0`
-    27. Repeat `nR` times  (block 21)
-        28. Set String Variable `sub` = ``
-        29. Set Local Variable `subHits` = `0`
-        30. Set Local Variable `i` = `0`
-        31. Repeat `n` times  (block 10)
-            32. Set Local Variable `hit` = `1`
-            33. If `filterLen` > `0`  (block 1, else 0)
-                34. String Position `hit` = position of `/$filter$/` in `/$scenes.data[i].metadata.name$/` (case insensitive)
-            35. If `hit` > `0`  (block 5, else 0)
-                36. String Position `same` = position of `/$rooms.data[r].id$/` in `/$scenes.data[i].group.rid$/`
-                37. If `same` > `0`  (block 3, else 0)
-                    38. Set String Variable `sub` += `   /$i$/ = /$scenes.data[i].metadata.name$/ / `
-                    39. Set Local Variable `subHits` += `1`
-                    40. Set Local Variable `shown` += `1`
-            41. Set Local Variable `i` += `1`
-        42. If `subHits` > `0`  (block 5, else 0)
-            43. Set String Variable `heading` = `== /$rooms.data[r].metadata.name$/ (room) ==`
-            44. String Position `isTarget` = position of `/$rooms.data[r].id$/` in `/$hueGroupId$/`
-            45. If `isTarget` > `0`  (block 1, else 0)
-                46. Set String Variable `heading` += `   <-- the target picked in Hue 3; scenes here change the lights you expect`
-            47. Set String Variable `list` += `/$heading$/ / /$sub$/ / `
-        48. Set Local Variable `r` += `1`
-    49. Set Local Variable `r` = `0`
-    50. Repeat `nZ` times  (block 21)
-        51. Set String Variable `sub` = ``
-        52. Set Local Variable `subHits` = `0`
-        53. Set Local Variable `i` = `0`
-        54. Repeat `n` times  (block 10)
-            55. Set Local Variable `hit` = `1`
-            56. If `filterLen` > `0`  (block 1, else 0)
-                57. String Position `hit` = position of `/$filter$/` in `/$scenes.data[i].metadata.name$/` (case insensitive)
-            58. If `hit` > `0`  (block 5, else 0)
-                59. String Position `same` = position of `/$zones.data[r].id$/` in `/$scenes.data[i].group.rid$/`
-                60. If `same` > `0`  (block 3, else 0)
-                    61. Set String Variable `sub` += `   /$i$/ = /$scenes.data[i].metadata.name$/ / `
-                    62. Set Local Variable `subHits` += `1`
-                    63. Set Local Variable `shown` += `1`
-            64. Set Local Variable `i` += `1`
-        65. If `subHits` > `0`  (block 5, else 0)
-            66. Set String Variable `heading` = `== /$zones.data[r].metadata.name$/ (zone) ==`
-            67. String Position `isTarget` = position of `/$zones.data[r].id$/` in `/$hueGroupId$/`
-            68. If `isTarget` > `0`  (block 1, else 0)
-                69. Set String Variable `heading` += `   <-- the target picked in Hue 3; scenes here change the lights you expect`
-            70. Set String Variable `list` += `/$heading$/ / /$sub$/ / `
-        71. Set Local Variable `r` += `1`
-    72. File: Delete File `hue_scenes_list.txt`
-    73. File: Append Text to `hue_scenes_list.txt`: Scenes on this bridge, grouped by room / zone (filtered by '/$filter$/' if you typed one). Type the number of the scene to link into SAMMI. /  / /$list$/
-    74. Command Line: `start "" notepad.exe "hue_scenes_list.txt"`
-    75. Wait For User Input -> `pick_1` (default `-1`): A Notepad window just opened listing /$shown$/ scene(s), grouped by room and zone (file hue_scenes_list.txt in the SAMMI folder). A scene changes the lights of ITS room/zone, so pick one from the group marked as your target. /  / Which scene should **Scene 1** recall? Type its NUMBER, or -1 to leave this one unchanged.
-    76. String to Number `num1` from `pick_1`
-    77. If `num1` >= `n`  (block 2, else 0)
-        78. Alert: Hue: /$pick_1$/ is not on the list; Scene 1 was left unchanged.
-        79. Set Local Variable `num1` = `-1`
-    80. If `num1` >= `0`  (block 20, else 0)
-        81. Set String Variable `groupName` = `unknown room`
-        82. Set String Variable `groupLight` = `0`
-        83. Set Local Variable `r` = `0`
-        84. Repeat `nR` times  (block 5)
-            85. String Position `same` = position of `/$rooms.data[r].id$/` in `/$scenes.data[num1].group.rid$/`
-            86. If `same` > `0`  (block 2, else 0)
-                87. Set String Variable `groupName` = `/$rooms.data[r].metadata.name$/ (room)`
-                88. Set String Variable `groupLight` = `/$rooms.data[r].services[0].rid$/`
-            89. Set Local Variable `r` += `1`
-        90. Set Local Variable `r` = `0`
-        91. Repeat `nZ` times  (block 5)
-            92. String Position `same` = position of `/$zones.data[r].id$/` in `/$scenes.data[num1].group.rid$/`
-            93. If `same` > `0`  (block 2, else 0)
-                94. Set String Variable `groupName` = `/$zones.data[r].metadata.name$/ (zone)`
-                95. Set String Variable `groupLight` = `/$zones.data[r].services[0].rid$/`
-            96. Set Local Variable `r` += `1`
-        97. INI: Save Text hue_scenes.ini [hue] scene_1 = `/$scenes.data[num1].id$/`
-        98. INI: Save Text hue_scenes.ini [hue] scene_1_light = `/$groupLight$/`
-        99. INI: Save Text hue_scenes.ini [hue] scene_1_name = `/$scenes.data[num1].metadata.name$/ in /$groupName$/`
-        100. Alert: Scene 1 -> scene '/$scenes.data[num1].metadata.name$/' in /$groupName$/. Recalling it changes every light in that room/zone, whatever Hue 3 picked.
-    101. Wait For User Input -> `pick_2` (default `-1`): A Notepad window just opened listing /$shown$/ scene(s), grouped by room and zone (file hue_scenes_list.txt in the SAMMI folder). A scene changes the lights of ITS room/zone, so pick one from the group marked as your target. /  / Which scene should **Scene 2** recall? Type its NUMBER, or -1 to leave this one unchanged.
-    102. String to Number `num2` from `pick_2`
-    103. If `num2` >= `n`  (block 2, else 0)
-        104. Alert: Hue: /$pick_2$/ is not on the list; Scene 2 was left unchanged.
-        105. Set Local Variable `num2` = `-1`
-    106. If `num2` >= `0`  (block 20, else 0)
-        107. Set String Variable `groupName` = `unknown room`
-        108. Set String Variable `groupLight` = `0`
-        109. Set Local Variable `r` = `0`
-        110. Repeat `nR` times  (block 5)
-            111. String Position `same` = position of `/$rooms.data[r].id$/` in `/$scenes.data[num2].group.rid$/`
-            112. If `same` > `0`  (block 2, else 0)
-                113. Set String Variable `groupName` = `/$rooms.data[r].metadata.name$/ (room)`
-                114. Set String Variable `groupLight` = `/$rooms.data[r].services[0].rid$/`
-            115. Set Local Variable `r` += `1`
-        116. Set Local Variable `r` = `0`
-        117. Repeat `nZ` times  (block 5)
-            118. String Position `same` = position of `/$zones.data[r].id$/` in `/$scenes.data[num2].group.rid$/`
-            119. If `same` > `0`  (block 2, else 0)
-                120. Set String Variable `groupName` = `/$zones.data[r].metadata.name$/ (zone)`
-                121. Set String Variable `groupLight` = `/$zones.data[r].services[0].rid$/`
-            122. Set Local Variable `r` += `1`
-        123. INI: Save Text hue_scenes.ini [hue] scene_2 = `/$scenes.data[num2].id$/`
-        124. INI: Save Text hue_scenes.ini [hue] scene_2_light = `/$groupLight$/`
-        125. INI: Save Text hue_scenes.ini [hue] scene_2_name = `/$scenes.data[num2].metadata.name$/ in /$groupName$/`
-        126. Alert: Scene 2 -> scene '/$scenes.data[num2].metadata.name$/' in /$groupName$/. Recalling it changes every light in that room/zone, whatever Hue 3 picked.
-    127. Wait For User Input -> `pick_3` (default `-1`): A Notepad window just opened listing /$shown$/ scene(s), grouped by room and zone (file hue_scenes_list.txt in the SAMMI folder). A scene changes the lights of ITS room/zone, so pick one from the group marked as your target. /  / Which scene should **Scene 3** recall? Type its NUMBER, or -1 to leave this one unchanged.
-    128. String to Number `num3` from `pick_3`
-    129. If `num3` >= `n`  (block 2, else 0)
-        130. Alert: Hue: /$pick_3$/ is not on the list; Scene 3 was left unchanged.
-        131. Set Local Variable `num3` = `-1`
-    132. If `num3` >= `0`  (block 20, else 0)
-        133. Set String Variable `groupName` = `unknown room`
-        134. Set String Variable `groupLight` = `0`
-        135. Set Local Variable `r` = `0`
-        136. Repeat `nR` times  (block 5)
-            137. String Position `same` = position of `/$rooms.data[r].id$/` in `/$scenes.data[num3].group.rid$/`
-            138. If `same` > `0`  (block 2, else 0)
-                139. Set String Variable `groupName` = `/$rooms.data[r].metadata.name$/ (room)`
-                140. Set String Variable `groupLight` = `/$rooms.data[r].services[0].rid$/`
-            141. Set Local Variable `r` += `1`
-        142. Set Local Variable `r` = `0`
-        143. Repeat `nZ` times  (block 5)
-            144. String Position `same` = position of `/$zones.data[r].id$/` in `/$scenes.data[num3].group.rid$/`
-            145. If `same` > `0`  (block 2, else 0)
-                146. Set String Variable `groupName` = `/$zones.data[r].metadata.name$/ (zone)`
-                147. Set String Variable `groupLight` = `/$zones.data[r].services[0].rid$/`
-            148. Set Local Variable `r` += `1`
-        149. INI: Save Text hue_scenes.ini [hue] scene_3 = `/$scenes.data[num3].id$/`
-        150. INI: Save Text hue_scenes.ini [hue] scene_3_light = `/$groupLight$/`
-        151. INI: Save Text hue_scenes.ini [hue] scene_3_name = `/$scenes.data[num3].metadata.name$/ in /$groupName$/`
-        152. Alert: Scene 3 -> scene '/$scenes.data[num3].metadata.name$/' in /$groupName$/. Recalling it changes every light in that room/zone, whatever Hue 3 picked.
-    153. Wait For User Input -> `pick_4` (default `-1`): A Notepad window just opened listing /$shown$/ scene(s), grouped by room and zone (file hue_scenes_list.txt in the SAMMI folder). A scene changes the lights of ITS room/zone, so pick one from the group marked as your target. /  / Which scene should **Scene 4** recall? Type its NUMBER, or -1 to leave this one unchanged.
-    154. String to Number `num4` from `pick_4`
-    155. If `num4` >= `n`  (block 2, else 0)
-        156. Alert: Hue: /$pick_4$/ is not on the list; Scene 4 was left unchanged.
-        157. Set Local Variable `num4` = `-1`
-    158. If `num4` >= `0`  (block 20, else 0)
-        159. Set String Variable `groupName` = `unknown room`
-        160. Set String Variable `groupLight` = `0`
-        161. Set Local Variable `r` = `0`
-        162. Repeat `nR` times  (block 5)
-            163. String Position `same` = position of `/$rooms.data[r].id$/` in `/$scenes.data[num4].group.rid$/`
-            164. If `same` > `0`  (block 2, else 0)
-                165. Set String Variable `groupName` = `/$rooms.data[r].metadata.name$/ (room)`
-                166. Set String Variable `groupLight` = `/$rooms.data[r].services[0].rid$/`
-            167. Set Local Variable `r` += `1`
-        168. Set Local Variable `r` = `0`
-        169. Repeat `nZ` times  (block 5)
-            170. String Position `same` = position of `/$zones.data[r].id$/` in `/$scenes.data[num4].group.rid$/`
-            171. If `same` > `0`  (block 2, else 0)
-                172. Set String Variable `groupName` = `/$zones.data[r].metadata.name$/ (zone)`
-                173. Set String Variable `groupLight` = `/$zones.data[r].services[0].rid$/`
-            174. Set Local Variable `r` += `1`
-        175. INI: Save Text hue_scenes.ini [hue] scene_4 = `/$scenes.data[num4].id$/`
-        176. INI: Save Text hue_scenes.ini [hue] scene_4_light = `/$groupLight$/`
-        177. INI: Save Text hue_scenes.ini [hue] scene_4_name = `/$scenes.data[num4].metadata.name$/ in /$groupName$/`
-        178. Alert: Scene 4 -> scene '/$scenes.data[num4].metadata.name$/' in /$groupName$/. Recalling it changes every light in that room/zone, whatever Hue 3 picked.
-    179. Alert: Scene links saved. Check them with Hue: Show Settings, then run 'Example: Hue scene' or 'Example: scene sequence'.
-    180. Popup (pauses button): Could not list the scenes. /  / Bridge said: /$resp$/ /  / 'unauthorized user' = run Hue 2: Pair again. Empty = wrong IP or bridge off.
+    14. Set Local Variable `nR` = `0`
+    15. String Position `okrooms` = position of `"data"` in `/$resp2$/`
+    16. If `okrooms` > `0`  (block 2, else 0)
+        17. Parse Array/Object `rooms` from `/$resp2$/`
+        18. Array Get Size `rooms.data` -> `nR`
+    19. Delete Variable `resp3`
+    20. Command Line: `curl.exe -sk -m 8 "https:///$hueIp$//clip/v2/resource/zone" -H "hue-application-key: /$hueKey$/"` -> save as `resp3`
+    21. Wait Until Variable Exists `resp3` (timeout 10000 ms)
+    22. Set Local Variable `nZ` = `0`
+    23. String Position `okzones` = position of `"data"` in `/$resp3$/`
+    24. If `okzones` > `0`  (block 2, else 0)
+        25. Parse Array/Object `zones` from `/$resp3$/`
+        26. Array Get Size `zones.data` -> `nZ`
+    27. INI: Load Text hue_scenes.ini [hue] group_id -> `hueGroupId`
+    28. Wait For User Input -> `filter` (default ``): Found /$n$/ scenes on this bridge. /  / Type part of a scene name to narrow the list (capitals do not matter), or leave this empty to list every scene, then click OK.
+    29. String Get Length `filterLen` of `/$filter$/`
+    30. Set Local Variable `shown` = `0`
+    31. Set String Variable `list` = ``
+    32. Set Local Variable `r` = `0`
+    33. Repeat `nR` times  (block 21)
+        34. Set String Variable `sub` = ``
+        35. Set Local Variable `subHits` = `0`
+        36. Set Local Variable `i` = `0`
+        37. Repeat `n` times  (block 10)
+            38. Set Local Variable `hit` = `1`
+            39. If `filterLen` > `0`  (block 1, else 0)
+                40. String Position `hit` = position of `/$filter$/` in `/$scenes.data[i].metadata.name$/` (case insensitive)
+            41. If `hit` > `0`  (block 5, else 0)
+                42. String Position `same` = position of `/$rooms.data[r].id$/` in `/$scenes.data[i].group.rid$/`
+                43. If `same` > `0`  (block 3, else 0)
+                    44. Set String Variable `sub` += `   /$i$/ = /$scenes.data[i].metadata.name$/ / `
+                    45. Set Local Variable `subHits` += `1`
+                    46. Set Local Variable `shown` += `1`
+            47. Set Local Variable `i` += `1`
+        48. If `subHits` > `0`  (block 5, else 0)
+            49. Set String Variable `heading` = `== /$rooms.data[r].metadata.name$/ (room) ==`
+            50. String Position `isTarget` = position of `/$rooms.data[r].id$/` in `/$hueGroupId$/`
+            51. If `isTarget` > `0`  (block 1, else 0)
+                52. Set String Variable `heading` += `   <-- the target picked in Hue 3; scenes here change the lights you expect`
+            53. Set String Variable `list` += `/$heading$/ / /$sub$/ / `
+        54. Set Local Variable `r` += `1`
+    55. Set Local Variable `r` = `0`
+    56. Repeat `nZ` times  (block 21)
+        57. Set String Variable `sub` = ``
+        58. Set Local Variable `subHits` = `0`
+        59. Set Local Variable `i` = `0`
+        60. Repeat `n` times  (block 10)
+            61. Set Local Variable `hit` = `1`
+            62. If `filterLen` > `0`  (block 1, else 0)
+                63. String Position `hit` = position of `/$filter$/` in `/$scenes.data[i].metadata.name$/` (case insensitive)
+            64. If `hit` > `0`  (block 5, else 0)
+                65. String Position `same` = position of `/$zones.data[r].id$/` in `/$scenes.data[i].group.rid$/`
+                66. If `same` > `0`  (block 3, else 0)
+                    67. Set String Variable `sub` += `   /$i$/ = /$scenes.data[i].metadata.name$/ / `
+                    68. Set Local Variable `subHits` += `1`
+                    69. Set Local Variable `shown` += `1`
+            70. Set Local Variable `i` += `1`
+        71. If `subHits` > `0`  (block 5, else 0)
+            72. Set String Variable `heading` = `== /$zones.data[r].metadata.name$/ (zone) ==`
+            73. String Position `isTarget` = position of `/$zones.data[r].id$/` in `/$hueGroupId$/`
+            74. If `isTarget` > `0`  (block 1, else 0)
+                75. Set String Variable `heading` += `   <-- the target picked in Hue 3; scenes here change the lights you expect`
+            76. Set String Variable `list` += `/$heading$/ / /$sub$/ / `
+        77. Set Local Variable `r` += `1`
+    78. File: Delete File `hue_scenes_list.txt`
+    79. File: Append Text to `hue_scenes_list.txt`: Scenes on this bridge, grouped by room / zone (filtered by '/$filter$/' if you typed one). Type the number of the scene to link into SAMMI. /  / /$list$/
+    80. Command Line: `start "" notepad.exe "hue_scenes_list.txt"`
+    81. Wait For User Input -> `pick_1` (default `-1`): A Notepad window just opened listing /$shown$/ scene(s), grouped by room and zone (file hue_scenes_list.txt in the SAMMI folder). A scene changes the lights of ITS room/zone, so pick one from the group marked as your target. /  / Which scene should **Scene 1** recall? Type its NUMBER, or -1 to leave this one unchanged.
+    82. String to Number `num1` from `pick_1`
+    83. If `num1` >= `n`  (block 2, else 0)
+        84. Alert: Hue: /$pick_1$/ is not on the list; Scene 1 was left unchanged.
+        85. Set Local Variable `num1` = `-1`
+    86. If `num1` >= `0`  (block 20, else 0)
+        87. Set String Variable `groupName` = `unknown room`
+        88. Set String Variable `groupLight` = `0`
+        89. Set Local Variable `r` = `0`
+        90. Repeat `nR` times  (block 5)
+            91. String Position `same` = position of `/$rooms.data[r].id$/` in `/$scenes.data[num1].group.rid$/`
+            92. If `same` > `0`  (block 2, else 0)
+                93. Set String Variable `groupName` = `/$rooms.data[r].metadata.name$/ (room)`
+                94. Set String Variable `groupLight` = `/$rooms.data[r].services[0].rid$/`
+            95. Set Local Variable `r` += `1`
+        96. Set Local Variable `r` = `0`
+        97. Repeat `nZ` times  (block 5)
+            98. String Position `same` = position of `/$zones.data[r].id$/` in `/$scenes.data[num1].group.rid$/`
+            99. If `same` > `0`  (block 2, else 0)
+                100. Set String Variable `groupName` = `/$zones.data[r].metadata.name$/ (zone)`
+                101. Set String Variable `groupLight` = `/$zones.data[r].services[0].rid$/`
+            102. Set Local Variable `r` += `1`
+        103. INI: Save Text hue_scenes.ini [hue] scene_1 = `/$scenes.data[num1].id$/`
+        104. INI: Save Text hue_scenes.ini [hue] scene_1_light = `/$groupLight$/`
+        105. INI: Save Text hue_scenes.ini [hue] scene_1_name = `/$scenes.data[num1].metadata.name$/ in /$groupName$/`
+        106. Alert: Scene 1 -> scene '/$scenes.data[num1].metadata.name$/' in /$groupName$/. Recalling it changes every light in that room/zone, whatever Hue 3 picked.
+    107. Wait For User Input -> `pick_2` (default `-1`): A Notepad window just opened listing /$shown$/ scene(s), grouped by room and zone (file hue_scenes_list.txt in the SAMMI folder). A scene changes the lights of ITS room/zone, so pick one from the group marked as your target. /  / Which scene should **Scene 2** recall? Type its NUMBER, or -1 to leave this one unchanged.
+    108. String to Number `num2` from `pick_2`
+    109. If `num2` >= `n`  (block 2, else 0)
+        110. Alert: Hue: /$pick_2$/ is not on the list; Scene 2 was left unchanged.
+        111. Set Local Variable `num2` = `-1`
+    112. If `num2` >= `0`  (block 20, else 0)
+        113. Set String Variable `groupName` = `unknown room`
+        114. Set String Variable `groupLight` = `0`
+        115. Set Local Variable `r` = `0`
+        116. Repeat `nR` times  (block 5)
+            117. String Position `same` = position of `/$rooms.data[r].id$/` in `/$scenes.data[num2].group.rid$/`
+            118. If `same` > `0`  (block 2, else 0)
+                119. Set String Variable `groupName` = `/$rooms.data[r].metadata.name$/ (room)`
+                120. Set String Variable `groupLight` = `/$rooms.data[r].services[0].rid$/`
+            121. Set Local Variable `r` += `1`
+        122. Set Local Variable `r` = `0`
+        123. Repeat `nZ` times  (block 5)
+            124. String Position `same` = position of `/$zones.data[r].id$/` in `/$scenes.data[num2].group.rid$/`
+            125. If `same` > `0`  (block 2, else 0)
+                126. Set String Variable `groupName` = `/$zones.data[r].metadata.name$/ (zone)`
+                127. Set String Variable `groupLight` = `/$zones.data[r].services[0].rid$/`
+            128. Set Local Variable `r` += `1`
+        129. INI: Save Text hue_scenes.ini [hue] scene_2 = `/$scenes.data[num2].id$/`
+        130. INI: Save Text hue_scenes.ini [hue] scene_2_light = `/$groupLight$/`
+        131. INI: Save Text hue_scenes.ini [hue] scene_2_name = `/$scenes.data[num2].metadata.name$/ in /$groupName$/`
+        132. Alert: Scene 2 -> scene '/$scenes.data[num2].metadata.name$/' in /$groupName$/. Recalling it changes every light in that room/zone, whatever Hue 3 picked.
+    133. Wait For User Input -> `pick_3` (default `-1`): A Notepad window just opened listing /$shown$/ scene(s), grouped by room and zone (file hue_scenes_list.txt in the SAMMI folder). A scene changes the lights of ITS room/zone, so pick one from the group marked as your target. /  / Which scene should **Scene 3** recall? Type its NUMBER, or -1 to leave this one unchanged.
+    134. String to Number `num3` from `pick_3`
+    135. If `num3` >= `n`  (block 2, else 0)
+        136. Alert: Hue: /$pick_3$/ is not on the list; Scene 3 was left unchanged.
+        137. Set Local Variable `num3` = `-1`
+    138. If `num3` >= `0`  (block 20, else 0)
+        139. Set String Variable `groupName` = `unknown room`
+        140. Set String Variable `groupLight` = `0`
+        141. Set Local Variable `r` = `0`
+        142. Repeat `nR` times  (block 5)
+            143. String Position `same` = position of `/$rooms.data[r].id$/` in `/$scenes.data[num3].group.rid$/`
+            144. If `same` > `0`  (block 2, else 0)
+                145. Set String Variable `groupName` = `/$rooms.data[r].metadata.name$/ (room)`
+                146. Set String Variable `groupLight` = `/$rooms.data[r].services[0].rid$/`
+            147. Set Local Variable `r` += `1`
+        148. Set Local Variable `r` = `0`
+        149. Repeat `nZ` times  (block 5)
+            150. String Position `same` = position of `/$zones.data[r].id$/` in `/$scenes.data[num3].group.rid$/`
+            151. If `same` > `0`  (block 2, else 0)
+                152. Set String Variable `groupName` = `/$zones.data[r].metadata.name$/ (zone)`
+                153. Set String Variable `groupLight` = `/$zones.data[r].services[0].rid$/`
+            154. Set Local Variable `r` += `1`
+        155. INI: Save Text hue_scenes.ini [hue] scene_3 = `/$scenes.data[num3].id$/`
+        156. INI: Save Text hue_scenes.ini [hue] scene_3_light = `/$groupLight$/`
+        157. INI: Save Text hue_scenes.ini [hue] scene_3_name = `/$scenes.data[num3].metadata.name$/ in /$groupName$/`
+        158. Alert: Scene 3 -> scene '/$scenes.data[num3].metadata.name$/' in /$groupName$/. Recalling it changes every light in that room/zone, whatever Hue 3 picked.
+    159. Wait For User Input -> `pick_4` (default `-1`): A Notepad window just opened listing /$shown$/ scene(s), grouped by room and zone (file hue_scenes_list.txt in the SAMMI folder). A scene changes the lights of ITS room/zone, so pick one from the group marked as your target. /  / Which scene should **Scene 4** recall? Type its NUMBER, or -1 to leave this one unchanged.
+    160. String to Number `num4` from `pick_4`
+    161. If `num4` >= `n`  (block 2, else 0)
+        162. Alert: Hue: /$pick_4$/ is not on the list; Scene 4 was left unchanged.
+        163. Set Local Variable `num4` = `-1`
+    164. If `num4` >= `0`  (block 20, else 0)
+        165. Set String Variable `groupName` = `unknown room`
+        166. Set String Variable `groupLight` = `0`
+        167. Set Local Variable `r` = `0`
+        168. Repeat `nR` times  (block 5)
+            169. String Position `same` = position of `/$rooms.data[r].id$/` in `/$scenes.data[num4].group.rid$/`
+            170. If `same` > `0`  (block 2, else 0)
+                171. Set String Variable `groupName` = `/$rooms.data[r].metadata.name$/ (room)`
+                172. Set String Variable `groupLight` = `/$rooms.data[r].services[0].rid$/`
+            173. Set Local Variable `r` += `1`
+        174. Set Local Variable `r` = `0`
+        175. Repeat `nZ` times  (block 5)
+            176. String Position `same` = position of `/$zones.data[r].id$/` in `/$scenes.data[num4].group.rid$/`
+            177. If `same` > `0`  (block 2, else 0)
+                178. Set String Variable `groupName` = `/$zones.data[r].metadata.name$/ (zone)`
+                179. Set String Variable `groupLight` = `/$zones.data[r].services[0].rid$/`
+            180. Set Local Variable `r` += `1`
+        181. INI: Save Text hue_scenes.ini [hue] scene_4 = `/$scenes.data[num4].id$/`
+        182. INI: Save Text hue_scenes.ini [hue] scene_4_light = `/$groupLight$/`
+        183. INI: Save Text hue_scenes.ini [hue] scene_4_name = `/$scenes.data[num4].metadata.name$/ in /$groupName$/`
+        184. Alert: Scene 4 -> scene '/$scenes.data[num4].metadata.name$/' in /$groupName$/. Recalling it changes every light in that room/zone, whatever Hue 3 picked.
+    185. Alert: Scene links saved. Check them with Hue: Show Settings, then run 'Example: Hue scene' or 'Example: scene sequence'.
+    186. Popup (pauses button): Could not list the scenes. /  / Bridge said: /$resp$/ /  / 'unauthorized user' = run Hue 2: Pair again. Empty = wrong IP or bridge off.
 
 ## Hue: Try Action  (`hueTryAction`)
 
@@ -536,7 +548,7 @@ Settings file: `hue_scenes.ini` in the SAMMI folder, section `[hue]`, keys `ip`,
 3. String Get Length `originLen` of `/$origin$/`
 4. If `originLen` == `0`  (block 1, else 0)
     5. Set String Variable `origin` = `hueApply`
-6. If `origin` == `"hueApply"`  (block 1, else 299)
+6. If `origin` == `"hueApply"`  (block 1, else 302)
     7. Alert: Hue: 'Hue: apply (shared)' runs when an action button calls it. Press an action button instead.
     8. Get Button Variable `look` from button `/$origin$/` -> `look`
     9. Get Button Variable `lookValue` from button `/$origin$/` -> `lookValue`
@@ -564,7 +576,7 @@ Settings file: `hue_scenes.ini` in the SAMMI folder, section `[hue]`, keys `ip`,
             31. Set Local Variable `groupSent` = `1`
             32. Alert: Hue: no scene linked for slot /$lookValue$/. Run 'Hue: Link Scenes' first.
             33. Set Local Variable `lookOk` = `0`
-    34. If `look` == `"color"`  (block 42, else 0)
+    34. If `look` == `"color"`  (block 49, else 0)
         35. Set Local Variable `known` = `1`
         36. Set Local Variable `named` = `0`
         37. If `lookValue` == `"red"`  (block 3, else 0)
@@ -599,129 +611,129 @@ Settings file: `hue_scenes.ini` in the SAMMI folder, section `[hue]`, keys `ip`,
             66. Set String Variable `colorX` = `0.45`
             67. Set String Variable `colorY` = `0.25`
             68. Set Local Variable `named` = `1`
-        69. If `named` == `0`  (block 3, else 0)
-            70. Parse Array/Object `xy` from `[/$lookValue$/]`
-            71. Set String Variable `colorX` = `/$xy[0]$/`
-            72. Set String Variable `colorY` = `/$xy[1]$/`
-        73. Delete Variable `resp`
-        74. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"color\":{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
-        75. Wait Until Variable Exists `resp` (timeout 10000 ms)
-        76. Set Local Variable `groupSent` = `1`
-    77. If `look` == `"white"`  (block 17, else 0)
-        78. Set Local Variable `known` = `1`
-        79. Set Local Variable `named` = `0`
-        80. If `lookValue` == `"warm"`  (block 2, else 0)
-            81. Set String Variable `whiteMirek` = `370`
-            82. Set Local Variable `named` = `1`
-        83. If `lookValue` == `"neutral"`  (block 2, else 0)
-            84. Set String Variable `whiteMirek` = `250`
-            85. Set Local Variable `named` = `1`
-        86. If `lookValue` == `"cool"`  (block 2, else 0)
-            87. Set String Variable `whiteMirek` = `153`
-            88. Set Local Variable `named` = `1`
-        89. If `named` == `0`  (block 1, else 0)
-            90. Set String Variable `whiteMirek` = `/$lookValue$/`
-        91. Delete Variable `resp`
-        92. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"color_temperature\":{\"mirek\":/$whiteMirek$/},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
-        93. Wait Until Variable Exists `resp` (timeout 10000 ms)
-        94. Set Local Variable `groupSent` = `1`
-    95. If `look` == `"on"`  (block 5, else 0)
-        96. Set Local Variable `known` = `1`
-        97. Delete Variable `resp`
-        98. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
-        99. Wait Until Variable Exists `resp` (timeout 10000 ms)
-        100. Set Local Variable `groupSent` = `1`
-    101. If `look` == `"off"`  (block 12, else 0)
-        102. Set Local Variable `known` = `1`
-        103. String Get Length `lvLen` of `/$lookValue$/`
-        104. If `lvLen` > `0`  (block 5, else 0)
-            105. INI: Load Text hue_scenes.ini [hue] scene_/$lookValue$/_light -> `offLight`
-            106. String Get Length `offLightLen` of `/$offLight$/`
-            107. If `offLightLen` > `30`  (block 2, else 0)
-                108. Set String Variable `hueLightType` = `grouped_light`
-                109. Set String Variable `hueLightId` = `/$offLight$/`
-        110. Delete Variable `resp`
-        111. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":false}}"` -> save as `resp`
-        112. Wait Until Variable Exists `resp` (timeout 10000 ms)
-        113. Set Local Variable `groupSent` = `1`
-    114. If `look` == `"none"`  (block 1, else 0)
-        115. Set Local Variable `known` = `1`
-    116. If `known` == `0`  (block 2, else 0)
-        117. Alert: Hue: unknown look '/$look$/'. Use one of: scene, color, white, on, off, none.
-        118. Set Local Variable `lookOk` = `0`
-    119. String Position `errPos` = position of `"description"` in `/$resp$/`
-    120. If `errPos` > `0`  (block 1, else 0)
-        121. Alert: Hue rejected the look: /$resp$/
-    122. Set Local Variable `fxKnown` = `0`
-    123. If `effect` == `"none"`  (block 1, else 0)
-        124. Set Local Variable `fxKnown` = `1`
-    125. If `effect` == `"breathe"`  (block 1, else 0)
-        126. Set Local Variable `fxKnown` = `1`
-    127. If `effect` == `"stop"`  (block 1, else 0)
-        128. Set Local Variable `fxKnown` = `1`
-    129. If `effect` == `"candle"`  (block 1, else 0)
-        130. Set Local Variable `fxKnown` = `1`
-    131. If `effect` == `"fire"`  (block 1, else 0)
-        132. Set Local Variable `fxKnown` = `1`
-    133. If `effect` == `"prism"`  (block 1, else 0)
-        134. Set Local Variable `fxKnown` = `1`
-    135. If `effect` == `"sparkle"`  (block 1, else 0)
-        136. Set Local Variable `fxKnown` = `1`
-    137. If `effect` == `"opal"`  (block 1, else 0)
-        138. Set Local Variable `fxKnown` = `1`
-    139. If `effect` == `"glisten"`  (block 1, else 0)
-        140. Set Local Variable `fxKnown` = `1`
-    141. If `effect` == `"underwater"`  (block 1, else 0)
-        142. Set Local Variable `fxKnown` = `1`
-    143. If `effect` == `"cosmos"`  (block 1, else 0)
-        144. Set Local Variable `fxKnown` = `1`
-    145. If `effect` == `"sunbeam"`  (block 1, else 0)
-        146. Set Local Variable `fxKnown` = `1`
-    147. If `effect` == `"enchant"`  (block 1, else 0)
-        148. Set Local Variable `fxKnown` = `1`
-    149. If `fxKnown` == `0`  (block 1, else 0)
-        150. Alert: Hue: unknown effect '/$effect$/'. Use one of: none, breathe, candle, fire, prism, sparkle, opal, glisten, underwater, cosmos, sunbeam, enchant, stop.
-    151. If `look` == `"off"`  (block 4, else 0)
-        152. If `effect` != `"none"`  (block 3, else 0)
-            153. If `effect` != `"stop"`  (block 2, else 0)
-                154. Alert: Hue: look off with an effect would turn the lights back on, so the effect was skipped.
-                155. Set Local Variable `fxKnown` = `0`
-    156. If `lookOk` == `1`  (block 149, else 0)
-        157. If `fxKnown` == `1`  (block 148, else 0)
-            158. If `effect` != `"none"`  (block 147, else 0)
-                159. INI: Load Text hue_scenes.ini [hue] ip -> `hueIp`
-                160. INI: Load Text hue_scenes.ini [hue] key -> `hueKey`
-                161. INI: Load Text hue_scenes.ini [hue] light -> `hueLightId`
-                162. INI: Load Text hue_scenes.ini [hue] light_type -> `hueLightType`
-                163. If `effect` == `"breathe"`  (block 18, else 124)
-                    164. If `look` == `"scene"`  (block 5, else 0)
-                        165. INI: Load Text hue_scenes.ini [hue] scene_/$lookValue$/_light -> `offLight`
-                        166. String Get Length `offLightLen` of `/$offLight$/`
-                        167. If `offLightLen` > `30`  (block 2, else 0)
-                            168. Set String Variable `hueLightType` = `grouped_light`
-                            169. Set String Variable `hueLightId` = `/$offLight$/`
-                    170. If `groupSent` == `1`  (block 1, else 0)
-                        171. Wait For Timeout 1000 ms
-                    172. If `pulses` < `1`  (block 1, else 0)
-                        173. Set Local Variable `pulses` = `1`
-                    174. Set Local Variable `bt` = `0`
-                    175. Repeat `pulses` times  (block 6)
-                        176. If `bt` > `0`  (block 1, else 0)
-                            177. Wait For Timeout 2000 ms
-                        178. Delete Variable `resp`
-                        179. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"alert\":{\"action\":\"breathe\"}}"` -> save as `resp`
-                        180. Wait Until Variable Exists `resp` (timeout 10000 ms)
-                        181. Set Local Variable `bt` += `1`
-                    182. Set String Variable `ids` = ``
-                    183. Set String Variable `xs` = ``
-                    184. Set String Variable `ys` = ``
-                    185. Set String Variable `sep` = ``
-                    186. Set String Variable `fxColorX` = ``
-                    187. Set String Variable `fxColorY` = ``
-                    188. If `look` == `"color"`  (block 2, else 0)
-                        189. Set String Variable `fxColorX` = `/$colorX$/`
-                        190. Set String Variable `fxColorY` = `/$colorY$/`
-                    191. If `look` == `"scene"`  (block 26, else 47)
+        69. If `named` == `0`  (block 10, else 0)
+            70. String Position `hasComma` = position of `,` in `/$lookValue$/`
+            71. String Position `hasDot` = position of `.` in `/$lookValue$/`
+            72. If `hasDot` <= `0`  (block 1, else 0)
+                73. Set Local Variable `hasComma` = `0`
+            74. If `hasComma` > `0`  (block 3, else 2)
+                75. Parse Array/Object `xy` from `[/$lookValue$/]`
+                76. Set String Variable `colorX` = `/$xy[0]$/`
+                77. Set String Variable `colorY` = `/$xy[1]$/`
+                78. Alert: Hue: unknown color '/$lookValue$/'. Use red, orange, yellow, green, cyan, blue, purple, pink, or x,y such as 0.6915,0.3083.
+                79. Set Local Variable `lookOk` = `0`
+        80. Delete Variable `resp`
+        81. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"color\":{\"xy\":{\"x\":/$colorX$/,\"y\":/$colorY$/}},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
+        82. Wait Until Variable Exists `resp` (timeout 10000 ms)
+        83. Set Local Variable `groupSent` = `1`
+    84. If `look` == `"white"`  (block 17, else 0)
+        85. Set Local Variable `known` = `1`
+        86. Set Local Variable `named` = `0`
+        87. If `lookValue` == `"warm"`  (block 2, else 0)
+            88. Set String Variable `whiteMirek` = `370`
+            89. Set Local Variable `named` = `1`
+        90. If `lookValue` == `"neutral"`  (block 2, else 0)
+            91. Set String Variable `whiteMirek` = `250`
+            92. Set Local Variable `named` = `1`
+        93. If `lookValue` == `"cool"`  (block 2, else 0)
+            94. Set String Variable `whiteMirek` = `153`
+            95. Set Local Variable `named` = `1`
+        96. If `named` == `0`  (block 1, else 0)
+            97. Set String Variable `whiteMirek` = `/$lookValue$/`
+        98. Delete Variable `resp`
+        99. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"color_temperature\":{\"mirek\":/$whiteMirek$/},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
+        100. Wait Until Variable Exists `resp` (timeout 10000 ms)
+        101. Set Local Variable `groupSent` = `1`
+    102. If `look` == `"on"`  (block 5, else 0)
+        103. Set Local Variable `known` = `1`
+        104. Delete Variable `resp`
+        105. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"dimming\":{\"brightness\":/$brightness$/},\"dynamics\":{\"duration\":/$fadeMs$/}}"` -> save as `resp`
+        106. Wait Until Variable Exists `resp` (timeout 10000 ms)
+        107. Set Local Variable `groupSent` = `1`
+    108. If `look` == `"off"`  (block 12, else 0)
+        109. Set Local Variable `known` = `1`
+        110. String Get Length `lvLen` of `/$lookValue$/`
+        111. If `lvLen` > `0`  (block 5, else 0)
+            112. INI: Load Text hue_scenes.ini [hue] scene_/$lookValue$/_light -> `offLight`
+            113. String Get Length `offLightLen` of `/$offLight$/`
+            114. If `offLightLen` > `30`  (block 2, else 0)
+                115. Set String Variable `hueLightType` = `grouped_light`
+                116. Set String Variable `hueLightId` = `/$offLight$/`
+        117. Delete Variable `resp`
+        118. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":false}}"` -> save as `resp`
+        119. Wait Until Variable Exists `resp` (timeout 10000 ms)
+        120. Set Local Variable `groupSent` = `1`
+    121. If `look` == `"none"`  (block 1, else 0)
+        122. Set Local Variable `known` = `1`
+    123. If `known` == `0`  (block 2, else 0)
+        124. Alert: Hue: unknown look '/$look$/'. Use one of: scene, color, white, on, off, none.
+        125. Set Local Variable `lookOk` = `0`
+    126. String Position `errPos` = position of `"description"` in `/$resp$/`
+    127. If `errPos` > `0`  (block 1, else 0)
+        128. Alert: Hue rejected the look: /$resp$/
+    129. Set Local Variable `fxKnown` = `0`
+    130. If `effect` == `"none"`  (block 1, else 0)
+        131. Set Local Variable `fxKnown` = `1`
+    132. If `effect` == `"breathe"`  (block 1, else 0)
+        133. Set Local Variable `fxKnown` = `1`
+    134. If `effect` == `"stop"`  (block 1, else 0)
+        135. Set Local Variable `fxKnown` = `1`
+    136. If `effect` == `"candle"`  (block 1, else 0)
+        137. Set Local Variable `fxKnown` = `1`
+    138. If `effect` == `"fire"`  (block 1, else 0)
+        139. Set Local Variable `fxKnown` = `1`
+    140. If `effect` == `"prism"`  (block 1, else 0)
+        141. Set Local Variable `fxKnown` = `1`
+    142. If `effect` == `"sparkle"`  (block 1, else 0)
+        143. Set Local Variable `fxKnown` = `1`
+    144. If `effect` == `"opal"`  (block 1, else 0)
+        145. Set Local Variable `fxKnown` = `1`
+    146. If `effect` == `"glisten"`  (block 1, else 0)
+        147. Set Local Variable `fxKnown` = `1`
+    148. If `effect` == `"underwater"`  (block 1, else 0)
+        149. Set Local Variable `fxKnown` = `1`
+    150. If `effect` == `"cosmos"`  (block 1, else 0)
+        151. Set Local Variable `fxKnown` = `1`
+    152. If `effect` == `"sunbeam"`  (block 1, else 0)
+        153. Set Local Variable `fxKnown` = `1`
+    154. If `effect` == `"enchant"`  (block 1, else 0)
+        155. Set Local Variable `fxKnown` = `1`
+    156. If `fxKnown` == `0`  (block 1, else 0)
+        157. Alert: Hue: unknown effect '/$effect$/'. Use one of: none, breathe, candle, fire, prism, sparkle, opal, glisten, underwater, cosmos, sunbeam, enchant, stop.
+    158. If `look` == `"off"`  (block 4, else 0)
+        159. If `effect` != `"none"`  (block 3, else 0)
+            160. If `effect` != `"stop"`  (block 2, else 0)
+                161. Alert: Hue: look off with an effect would turn the lights back on, so the effect was skipped.
+                162. Set Local Variable `fxKnown` = `0`
+    163. If `lookOk` == `1`  (block 145, else 0)
+        164. If `fxKnown` == `1`  (block 144, else 0)
+            165. If `effect` != `"none"`  (block 143, else 0)
+                166. INI: Load Text hue_scenes.ini [hue] ip -> `hueIp`
+                167. INI: Load Text hue_scenes.ini [hue] key -> `hueKey`
+                168. INI: Load Text hue_scenes.ini [hue] light -> `hueLightId`
+                169. INI: Load Text hue_scenes.ini [hue] light_type -> `hueLightType`
+                170. If `effect` == `"breathe"`  (block 18, else 120)
+                    171. If `look` == `"scene"`  (block 5, else 0)
+                        172. INI: Load Text hue_scenes.ini [hue] scene_/$lookValue$/_light -> `offLight`
+                        173. String Get Length `offLightLen` of `/$offLight$/`
+                        174. If `offLightLen` > `30`  (block 2, else 0)
+                            175. Set String Variable `hueLightType` = `grouped_light`
+                            176. Set String Variable `hueLightId` = `/$offLight$/`
+                    177. If `groupSent` == `1`  (block 1, else 0)
+                        178. Wait For Timeout 1000 ms
+                    179. If `pulses` < `1`  (block 1, else 0)
+                        180. Set Local Variable `pulses` = `1`
+                    181. Set Local Variable `bt` = `0`
+                    182. Repeat `pulses` times  (block 6)
+                        183. If `bt` > `0`  (block 1, else 0)
+                            184. Wait For Timeout 2000 ms
+                        185. Delete Variable `resp`
+                        186. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"alert\":{\"action\":\"breathe\"}}"` -> save as `resp`
+                        187. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                        188. Set Local Variable `bt` += `1`
+                    189. Set String Variable `ids` = ``
+                    190. Set String Variable `sep` = ``
+                    191. If `look` == `"scene"`  (block 14, else 41)
                         192. Delete Variable `resp`
                         193. Command Line: `curl.exe -sk -m 8 "https:///$hueIp$//clip/v2/resource/scene//$hueSceneId$/" -H "hue-application-key: /$hueKey$/"` -> save as `resp`
                         194. Wait Until Variable Exists `resp` (timeout 10000 ms)
@@ -732,111 +744,114 @@ Settings file: `hue_scenes.ini` in the SAMMI folder, section `[hue]`, keys `ip`,
                             199. Array Get Size `sc.data[0].actions` -> `nAct`
                             200. Alert: Hue: could not read scene slot /$lookValue$/ (/$resp$/). Run 'Hue: Link Scenes' again.
                         201. Set Local Variable `i` = `0`
-                        202. Repeat `nAct` times  (block 15)
-                            203. Set String Variable `rid` = `/$sc.data[0].actions[i].target.rid$/`
-                            204. Set String Variable `cx` = `/$sc.data[0].actions[i].action.color.xy.x$/`
-                            205. Set String Variable `cy` = `/$sc.data[0].actions[i].action.color.xy.y$/`
-                            206. String Position `cxDot` = position of `.` in `/$cx$/`
-                            207. If `cxDot` <= `0`  (block 2, else 0)
-                                208. Set String Variable `cx` = ``
-                                209. Set String Variable `cy` = ``
-                            210. Set String Variable `onState` = `/$sc.data[0].actions[i].action.on.on$/`
-                            211. String Position `isOff` = position of `false` in `/$onState$/`
-                            212. If `isOff` <= `0`  (block 4, else 0)
-                                213. Set String Variable `ids` += `/$sep$/"/$rid$/"`
-                                214. Set String Variable `xs` += `/$sep$/"/$cx$/"`
-                                215. Set String Variable `ys` += `/$sep$/"/$cy$/"`
-                                216. Set String Variable `sep` = `,`
-                            217. Set Local Variable `i` += `1`
-                        218. If `hueLightType` == `"light"`  (block 4, else 42)
-                            219. Set String Variable `ids` += `/$sep$/"/$hueLightId$/"`
-                            220. Set String Variable `xs` += `/$sep$/"/$fxColorX$/"`
-                            221. Set String Variable `ys` += `/$sep$/"/$fxColorY$/"`
-                            222. Set String Variable `sep` = `,`
-                            223. INI: Load Text hue_scenes.ini [hue] group_id -> `hueGroupId`
-                            224. Delete Variable `resp`
-                            225. Command Line: `curl.exe -sk -m 8 "https:///$hueIp$//clip/v2/resource/room//$hueGroupId$/" -H "hue-application-key: /$hueKey$/"` -> save as `resp`
-                            226. Wait Until Variable Exists `resp` (timeout 10000 ms)
-                            227. String Position `hasKids` = position of `"children"` in `/$resp$/`
-                            228. If `hasKids` <= `0`  (block 4, else 0)
-                                229. Delete Variable `resp`
-                                230. Command Line: `curl.exe -sk -m 8 "https:///$hueIp$//clip/v2/resource/zone//$hueGroupId$/" -H "hue-application-key: /$hueKey$/"` -> save as `resp`
-                                231. Wait Until Variable Exists `resp` (timeout 10000 ms)
-                                232. String Position `hasKids` = position of `"children"` in `/$resp$/`
-                            233. If `hasKids` <= `0`  (block 1, else 30)
-                                234. Alert: Hue: could not read the Hue 3 target's room or zone (/$resp$/). Run Hue 3: Pick Target again.
-                                235. Parse Array/Object `grp` from `/$resp$/`
-                                236. Array Get Size `grp.data[0].children` -> `nCh`
-                                237. String Position `isRoom` = position of `"rtype":"device"` in `/$resp$/`
-                                238. If `isRoom` <= `0`  (block 7, else 19)
-                                    239. Set Local Variable `i` = `0`
-                                    240. Repeat `nCh` times  (block 5)
-                                        241. Set String Variable `ids` += `/$sep$/"/$grp.data[0].children[i].rid$/"`
-                                        242. Set String Variable `xs` += `/$sep$/"/$fxColorX$/"`
-                                        243. Set String Variable `ys` += `/$sep$/"/$fxColorY$/"`
-                                        244. Set String Variable `sep` = `,`
-                                        245. Set Local Variable `i` += `1`
-                                    246. Delete Variable `resp`
-                                    247. Command Line: `curl.exe -sk -m 8 "https:///$hueIp$//clip/v2/resource/light" -H "hue-application-key: /$hueKey$/"` -> save as `resp`
-                                    248. Wait Until Variable Exists `resp` (timeout 10000 ms)
-                                    249. String Position `hasData` = position of `"owner"` in `/$resp$/`
-                                    250. If `hasData` > `0`  (block 14, else 0)
-                                        251. Parse Array/Object `allLights` from `/$resp$/`
-                                        252. Array Get Size `allLights.data` -> `nAll`
-                                        253. Set Local Variable `i` = `0`
-                                        254. Repeat `nAll` times  (block 10)
-                                            255. Set Local Variable `j` = `0`
-                                            256. Repeat `nCh` times  (block 7)
-                                                257. String Position `same` = position of `/$grp.data[0].children[j].rid$/` in `/$allLights.data[i].owner.rid$/`
-                                                258. If `same` > `0`  (block 4, else 0)
-                                                    259. Set String Variable `ids` += `/$sep$/"/$allLights.data[i].id$/"`
-                                                    260. Set String Variable `xs` += `/$sep$/"/$fxColorX$/"`
-                                                    261. Set String Variable `ys` += `/$sep$/"/$fxColorY$/"`
-                                                    262. Set String Variable `sep` = `,`
-                                                263. Set Local Variable `j` += `1`
-                                            264. Set Local Variable `i` += `1`
-                    265. Parse Array/Object `fxIds` from `[/$ids$/]`
-                    266. Parse Array/Object `fxXs` from `[/$xs$/]`
-                    267. Parse Array/Object `fxYs` from `[/$ys$/]`
-                    268. Array Get Size `fxIds` -> `nFx`
-                    269. Set String Variable `hueLightType` = `light`
-                    270. Set Local Variable `fxOk` = `0`
-                    271. Set String Variable `fxLastErr` = ``
-                    272. Set Local Variable `i` = `0`
-                    273. Repeat `nFx` times  (block 27)
-                        274. If `i` > `0`  (block 1, else 0)
-                            275. Wait For Timeout 150 ms
-                        276. Set String Variable `hueLightId` = `/$fxIds[i]$/`
-                        277. Set String Variable `fx` = `/$fxXs[i]$/`
-                        278. Set String Variable `fy` = `/$fxYs[i]$/`
-                        279. If `effect` == `"stop"`  (block 3, else 13)
-                            280. Delete Variable `resp`
-                            281. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"effects\":{\"effect\":\"no_effect\"}}"` -> save as `resp`
-                            282. Wait Until Variable Exists `resp` (timeout 10000 ms)
-                            283. String Get Length `fxLen` of `/$fx$/`
-                            284. If `fxLen` > `0`  (block 3, else 3)
-                                285. Delete Variable `resp`
-                                286. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"effects_v2\":{\"action\":{\"effect\":\"/$effect$/\",\"parameters\":{\"speed\":/$speed$/,\"color\":{\"xy\":{\"x\":/$fx$/,\"y\":/$fy$/}}}}}}"` -> save as `resp`
-                                287. Wait Until Variable Exists `resp` (timeout 10000 ms)
-                                288. Delete Variable `resp`
-                                289. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"effects_v2\":{\"action\":{\"effect\":\"/$effect$/\",\"parameters\":{\"speed\":/$speed$/}}}}"` -> save as `resp`
-                                290. Wait Until Variable Exists `resp` (timeout 10000 ms)
-                            291. String Position `errPos` = position of `"description"` in `/$resp$/`
-                            292. If `errPos` > `0`  (block 3, else 0)
-                                293. Delete Variable `resp`
-                                294. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"effects\":{\"effect\":\"/$effect$/\"}}"` -> save as `resp`
-                                295. Wait Until Variable Exists `resp` (timeout 10000 ms)
-                        296. String Position `errPos` = position of `"description"` in `/$resp$/`
-                        297. If `errPos` > `0`  (block 1, else 1)
-                            298. Set String Variable `fxLastErr` = `/$resp$/`
-                            299. Set Local Variable `fxOk` += `1`
-                        300. Set Local Variable `i` += `1`
-                    301. If `effect` != `"stop"`  (block 4, else 0)
-                        302. If `nFx` == `0`  (block 1, else 2)
-                            303. Alert: Hue: found no bulbs for the effect. Run Hue 3: Pick Target again, then try once more.
-                            304. If `fxOk` == `0`  (block 1, else 0)
-                                305. Alert: Hue: no bulb accepted the effect '/$effect$/'. Bridge said: /$fxLastErr$/
-    306. Overtime 1000 ms
+                        202. Repeat `nAct` times  (block 3)
+                            203. Set String Variable `ids` += `/$sep$/"/$sc.data[0].actions[i].target.rid$/"`
+                            204. Set String Variable `sep` = `,`
+                            205. Set Local Variable `i` += `1`
+                        206. If `hueLightType` == `"light"`  (block 2, else 38)
+                            207. Set String Variable `ids` += `/$sep$/"/$hueLightId$/"`
+                            208. Set String Variable `sep` = `,`
+                            209. INI: Load Text hue_scenes.ini [hue] group_id -> `hueGroupId`
+                            210. Delete Variable `resp`
+                            211. Command Line: `curl.exe -sk -m 8 "https:///$hueIp$//clip/v2/resource/room//$hueGroupId$/" -H "hue-application-key: /$hueKey$/"` -> save as `resp`
+                            212. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                            213. String Position `hasKids` = position of `"children"` in `/$resp$/`
+                            214. If `hasKids` <= `0`  (block 4, else 0)
+                                215. Delete Variable `resp`
+                                216. Command Line: `curl.exe -sk -m 8 "https:///$hueIp$//clip/v2/resource/zone//$hueGroupId$/" -H "hue-application-key: /$hueKey$/"` -> save as `resp`
+                                217. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                                218. String Position `hasKids` = position of `"children"` in `/$resp$/`
+                            219. If `hasKids` <= `0`  (block 1, else 26)
+                                220. Alert: Hue: could not read the Hue 3 target's room or zone (/$resp$/). Run Hue 3: Pick Target again.
+                                221. Parse Array/Object `grp` from `/$resp$/`
+                                222. Array Get Size `grp.data[0].children` -> `nCh`
+                                223. String Position `isRoom` = position of `"rtype":"device"` in `/$resp$/`
+                                224. If `isRoom` <= `0`  (block 5, else 17)
+                                    225. Set Local Variable `i` = `0`
+                                    226. Repeat `nCh` times  (block 3)
+                                        227. Set String Variable `ids` += `/$sep$/"/$grp.data[0].children[i].rid$/"`
+                                        228. Set String Variable `sep` = `,`
+                                        229. Set Local Variable `i` += `1`
+                                    230. Delete Variable `resp`
+                                    231. Command Line: `curl.exe -sk -m 8 "https:///$hueIp$//clip/v2/resource/light" -H "hue-application-key: /$hueKey$/"` -> save as `resp`
+                                    232. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                                    233. String Position `hasData` = position of `"owner"` in `/$resp$/`
+                                    234. If `hasData` > `0`  (block 12, else 0)
+                                        235. Parse Array/Object `allLights` from `/$resp$/`
+                                        236. Array Get Size `allLights.data` -> `nAll`
+                                        237. Set Local Variable `i` = `0`
+                                        238. Repeat `nAll` times  (block 8)
+                                            239. Set Local Variable `j` = `0`
+                                            240. Repeat `nCh` times  (block 5)
+                                                241. String Position `same` = position of `/$grp.data[0].children[j].rid$/` in `/$allLights.data[i].owner.rid$/`
+                                                242. If `same` > `0`  (block 2, else 0)
+                                                    243. Set String Variable `ids` += `/$sep$/"/$allLights.data[i].id$/"`
+                                                    244. Set String Variable `sep` = `,`
+                                                245. Set Local Variable `j` += `1`
+                                            246. Set Local Variable `i` += `1`
+                    247. Parse Array/Object `fxIds` from `[/$ids$/]`
+                    248. Array Get Size `fxIds` -> `nFx`
+                    249. Set String Variable `hueLightType` = `light`
+                    250. Set Local Variable `fxOk` = `0`
+                    251. Set String Variable `fxLastErr` = ``
+                    252. Set Local Variable `i` = `0`
+                    253. Repeat `nFx` times  (block 50)
+                        254. If `i` > `0`  (block 1, else 0)
+                            255. Wait For Timeout 150 ms
+                        256. Set String Variable `hueLightId` = `/$fxIds[i]$/`
+                        257. Delete Variable `resp`
+                        258. Command Line: `curl.exe -sk -m 8 "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/"` -> save as `resp`
+                        259. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                        260. Set String Variable `bulb` = `/$resp$/`
+                        261. String Position `canFx` = position of `"effects"` in `/$bulb$/`
+                        262. Set Local Variable `skip` = `0`
+                        263. If `canFx` <= `0`  (block 1, else 0)
+                            264. Set Local Variable `skip` = `1`
+                        265. If `look` == `"scene"`  (block 3, else 0)
+                            266. String Position `isOff` = position of `"on":{"on":false}` in `/$bulb$/`
+                            267. If `isOff` > `0`  (block 1, else 0)
+                                268. Set Local Variable `skip` = `1`
+                        269. Set String Variable `fx` = ``
+                        270. Set String Variable `fy` = ``
+                        271. If `look` == `"color"`  (block 2, else 0)
+                            272. Set String Variable `fx` = `/$colorX$/`
+                            273. Set String Variable `fy` = `/$colorY$/`
+                        274. If `look` == `"scene"`  (block 5, else 0)
+                            275. String Position `hasXy` = position of `"xy"` in `/$bulb$/`
+                            276. If `hasXy` > `0`  (block 3, else 0)
+                                277. Parse Array/Object `bulbObj` from `/$bulb$/`
+                                278. Set String Variable `fx` = `/$bulbObj.data[0].color.xy.x$/`
+                                279. Set String Variable `fy` = `/$bulbObj.data[0].color.xy.y$/`
+                        280. If `skip` == `1`  (block 1, else 21)
+                            281. Set String Variable `resp` = ``
+                            282. If `effect` == `"stop"`  (block 3, else 13)
+                                283. Delete Variable `resp`
+                                284. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"effects\":{\"effect\":\"no_effect\"}}"` -> save as `resp`
+                                285. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                                286. String Get Length `fxLen` of `/$fx$/`
+                                287. If `fxLen` > `0`  (block 3, else 3)
+                                    288. Delete Variable `resp`
+                                    289. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"effects_v2\":{\"action\":{\"effect\":\"/$effect$/\",\"parameters\":{\"speed\":/$speed$/,\"color\":{\"xy\":{\"x\":/$fx$/,\"y\":/$fy$/}}}}}}"` -> save as `resp`
+                                    290. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                                    291. Delete Variable `resp`
+                                    292. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"effects_v2\":{\"action\":{\"effect\":\"/$effect$/\",\"parameters\":{\"speed\":/$speed$/}}}}"` -> save as `resp`
+                                    293. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                                294. String Position `errPos` = position of `"description"` in `/$resp$/`
+                                295. If `errPos` > `0`  (block 3, else 0)
+                                    296. Delete Variable `resp`
+                                    297. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"effects\":{\"effect\":\"/$effect$/\"}}"` -> save as `resp`
+                                    298. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                            299. String Position `errPos` = position of `"description"` in `/$resp$/`
+                            300. If `errPos` > `0`  (block 1, else 1)
+                                301. Set String Variable `fxLastErr` = `/$resp$/`
+                                302. Set Local Variable `fxOk` += `1`
+                        303. Set Local Variable `i` += `1`
+                    304. If `effect` != `"stop"`  (block 4, else 0)
+                        305. If `nFx` == `0`  (block 1, else 2)
+                            306. Alert: Hue: found no bulbs for the effect. Run Hue 3: Pick Target again, then try once more.
+                            307. If `fxOk` == `0`  (block 1, else 0)
+                                308. Alert: Hue: no bulb took the effect '/$effect$/' (none of them can run effects, or the bridge refused: /$fxLastErr$/).
+    309. Overtime 1000 ms
 
 ## Hue: Auto rediscover  (`hueStartup`)
 - Trigger: SAMMI Trigger, SAMMI Startup

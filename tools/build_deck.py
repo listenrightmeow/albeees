@@ -259,8 +259,16 @@ EFFECT_NAMES = [e.strip() for e in EFFECTS.split(",")]
 def resolve_color():
     named = [if_("lookValue", "==", f'"{n}"', [set_string("colorX", x), set_string("colorY", y), set_local("named", "1")])
              for n, x, y in COLORS]
+    names = ", ".join(n for n, _, _ in COLORS)
     return [set_local("named", "0"), *named,
-            if_("named", "==", "0", [parse("xy", "[/$lookValue$/]"), set_string("colorX", "/$xy[0]$/"), set_string("colorY", "/$xy[1]$/")])]
+            if_("named", "==", "0", [
+                str_pos("hasComma", "/$lookValue$/", ","),
+                str_pos("hasDot", "/$lookValue$/", "."),
+                if_("hasDot", "<=", "0", [set_local("hasComma", "0")]),       # x,y are decimals: 0.6915,0.3083
+                if_("hasComma", ">", "0", [parse("xy", "[/$lookValue$/]"), set_string("colorX", "/$xy[0]$/"), set_string("colorY", "/$xy[1]$/")],
+                    [alert(f"Hue: unknown color '/$lookValue$/'. Use {names}, or x,y such as 0.6915,0.3083."),
+                     set_local("lookOk", "0")]),
+            ])]
 
 
 def resolve_white():
@@ -304,7 +312,7 @@ def do_look():
 
 
 def bulbs_of_scene():
-    """fxIds / fxXs / fxYs: the scene's bulbs and each one's scene color ("" when it has none)."""
+    """fxIds: the scene's bulbs (each action's target is a light id, always present)."""
     return [
         *send(f'{CURL} {SCENE_URL} -H "hue-application-key: /$hueKey$/"'),
         set_local("nAct", "0"),
@@ -313,21 +321,8 @@ def bulbs_of_scene():
             [alert("Hue: could not read scene slot /$lookValue$/ (/$resp$/). Run 'Hue: Link Scenes' again.")]),
         set_local("i", "0"),
         repeat("nAct", [
-            set_string("rid", "/$sc.data[0].actions[i].target.rid$/"),
-            set_string("cx", "/$sc.data[0].actions[i].action.color.xy.x$/"),
-            set_string("cy", "/$sc.data[0].actions[i].action.color.xy.y$/"),
-            # A bulb set to a white in the scene has no xy: keep the color only if it is a decimal number.
-            str_pos("cxDot", "/$cx$/", "."),
-            if_("cxDot", "<=", "0", [set_string("cx", ""), set_string("cy", "")]),
-            # A bulb the scene leaves off stays off: no effect for it.
-            set_string("onState", "/$sc.data[0].actions[i].action.on.on$/"),
-            str_pos("isOff", "/$onState$/", "false"),
-            if_("isOff", "<=", "0", [
-                set_string("ids", '/$sep$/"/$rid$/"', rel=True),
-                set_string("xs", '/$sep$/"/$cx$/"', rel=True),
-                set_string("ys", '/$sep$/"/$cy$/"', rel=True),
-                set_string("sep", ","),
-            ]),
+            set_string("ids", '/$sep$/"/$sc.data[0].actions[i].target.rid$/"', rel=True),
+            set_string("sep", ","),
             set_local("i", "1", op="+="),
         ]),
     ]
@@ -337,12 +332,7 @@ def bulbs_of_target():
     """fxIds: the Hue 3 target's bulbs. A zone lists its bulbs; a room lists devices, so match each
     bulb's owner device against the room's children. The group id is tried as a room, then as a zone,
     and every array is read only after the reply proves it is there (a missing path crashes SAMMI)."""
-    add = lambda rid_expr: [
-        set_string("ids", f'/$sep$/"{rid_expr}"', rel=True),
-        set_string("xs", '/$sep$/"/$fxColorX$/"', rel=True),
-        set_string("ys", '/$sep$/"/$fxColorY$/"', rel=True),
-        set_string("sep", ","),
-    ]
+    add = lambda rid_expr: [set_string("ids", f'/$sep$/"{rid_expr}"', rel=True), set_string("sep", ",")]
     get = lambda kind: send(f'{CURL} "https:///$hueIp$//clip/v2/resource/{kind}//$hueGroupId$/" -H "hue-application-key: /$hueKey$/"')
     return [
         if_("hueLightType", "==", '"light"', add("/$hueLightId$/"), [
@@ -393,13 +383,9 @@ def do_effect():
     others are set bulb by bulb, because Hue has effects on bulbs only. Bulbs that cannot run effects
     (plugs, white-only bulbs) are skipped quietly; the button alerts only when no bulb took the effect."""
     per_bulb = [
-        set_string("ids", ""), set_string("xs", ""), set_string("ys", ""), set_string("sep", ""),
-        set_string("fxColorX", ""), set_string("fxColorY", ""),
-        if_("look", "==", '"color"', [set_string("fxColorX", "/$colorX$/"), set_string("fxColorY", "/$colorY$/")]),
+        set_string("ids", ""), set_string("sep", ""),
         if_("look", "==", '"scene"', bulbs_of_scene(), bulbs_of_target()),
         parse("fxIds", "[/$ids$/]"),
-        parse("fxXs", "[/$xs$/]"),
-        parse("fxYs", "[/$ys$/]"),
         arr_size("fxIds", "nFx"),
         set_string("hueLightType", "light"),
         set_local("fxOk", "0"),
@@ -408,8 +394,24 @@ def do_effect():
         repeat("nFx", [
             if_("i", ">", "0", [wait_ms("150")]),                    # keep a room's bulbs under ~10 commands/s
             set_string("hueLightId", "/$fxIds[i]$/"),
-            set_string("fx", "/$fxXs[i]$/"),
-            set_string("fy", "/$fxYs[i]$/"),
+            # Ask the bulb itself; read a field only after its reply text shows it is there.
+            *send(f'{CURL} {LIGHT_URL} -H "hue-application-key: /$hueKey$/"'),
+            set_string("bulb", "/$resp$/"),
+            str_pos("canFx", "/$bulb$/", '"effects"'),
+            set_local("skip", "0"),
+            if_("canFx", "<=", "0", [set_local("skip", "1")]),                 # plug or white-only bulb
+            if_("look", "==", '"scene"', [
+                str_pos("isOff", "/$bulb$/", '"on":{"on":false}'),
+                if_("isOff", ">", "0", [set_local("skip", "1")]),             # the scene leaves it off
+            ]),
+            set_string("fx", ""), set_string("fy", ""),
+            if_("look", "==", '"color"', [set_string("fx", "/$colorX$/"), set_string("fy", "/$colorY$/")]),
+            if_("look", "==", '"scene"', [
+                str_pos("hasXy", "/$bulb$/", '"xy"'),
+                if_("hasXy", ">", "0", [parse("bulbObj", "/$bulb$/"), set_string("fx", "/$bulbObj.data[0].color.xy.x$/"),
+                                        set_string("fy", "/$bulbObj.data[0].color.xy.y$/")]),
+            ]),
+            if_("skip", "==", "1", [set_string("resp", "")], [
             if_("effect", "==", '"stop"', send(put_light({"effects": {"effect": "no_effect"}})), [
                 str_len("fxLen", "/$fx$/"),
                 if_("fxLen", ">", "0", send(put_light_vars(FX_COLOR)), send(put_light_vars(FX_PLAIN))),
@@ -418,11 +420,12 @@ def do_effect():
             ]),
             str_pos("errPos", "/$resp$/", '"description"'),
             if_("errPos", ">", "0", [set_string("fxLastErr", "/$resp$/")], [set_local("fxOk", "1", op="+=")]),
+            ]),
             set_local("i", "1", op="+="),
         ]),
         if_("effect", "!=", '"stop"', [
             if_("nFx", "==", "0", [alert("Hue: found no bulbs for the effect. Run Hue 3: Pick Target again, then try once more.")], [
-                if_("fxOk", "==", "0", [alert("Hue: no bulb accepted the effect '/$effect$/'. Bridge said: /$fxLastErr$/")]),
+                if_("fxOk", "==", "0", [alert("Hue: no bulb took the effect '/$effect$/' (none of them can run effects, or the bridge refused: /$fxLastErr$/).")]),
             ]),
         ]),
     ]
@@ -827,14 +830,16 @@ BUTTONS = [
             delete_var("resp2"),
             shell(f'{CURL} "https:///$hueIp$//clip/v2/resource/room" -H "hue-application-key: /$hueKey$/"', "resp2"),
             wait_exists("resp2", 10000),
-            parse("rooms", "/$resp2$/"),
+            set_local("nR", "0"),
+            str_pos("okrooms", "/$resp2$/", '"data"'),
+            if_("okrooms", ">", "0", [parse("rooms", "/$resp2$/"), arr_size("rooms.data", "nR")]),
             delete_var("resp3"),
             shell(f'{CURL} "https:///$hueIp$//clip/v2/resource/zone" -H "hue-application-key: /$hueKey$/"', "resp3"),
             wait_exists("resp3", 10000),
-            parse("zones", "/$resp3$/"),
+            set_local("nZ", "0"),
+            str_pos("okzones", "/$resp3$/", '"data"'),
+            if_("okzones", ">", "0", [parse("zones", "/$resp3$/"), arr_size("zones.data", "nZ")]),
             arr_size("lights.data", "nL"),
-            arr_size("rooms.data", "nR"),
-            arr_size("zones.data", "nZ"),
             set_local("k", "0"),
             set_string("list", ""),
             set_local("i", "0"),
@@ -951,13 +956,15 @@ BUTTONS = [
             delete_var("resp2"),
             shell(f'{CURL} "https:///$hueIp$//clip/v2/resource/room" -H "hue-application-key: /$hueKey$/"', "resp2"),
             wait_exists("resp2", 10000),
-            parse("rooms", "/$resp2$/"),
+            set_local("nR", "0"),
+            str_pos("okrooms", "/$resp2$/", '"data"'),
+            if_("okrooms", ">", "0", [parse("rooms", "/$resp2$/"), arr_size("rooms.data", "nR")]),
             delete_var("resp3"),
             shell(f'{CURL} "https:///$hueIp$//clip/v2/resource/zone" -H "hue-application-key: /$hueKey$/"', "resp3"),
             wait_exists("resp3", 10000),
-            parse("zones", "/$resp3$/"),
-            arr_size("rooms.data", "nR"),
-            arr_size("zones.data", "nZ"),
+            set_local("nZ", "0"),
+            str_pos("okzones", "/$resp3$/", '"data"'),
+            if_("okzones", ">", "0", [parse("zones", "/$resp3$/"), arr_size("zones.data", "nZ")]),
             ini_load("group_id", "hueGroupId"),
             wait_input("Found /$n$/ scenes on this bridge.\n\n"
                        "Type part of a scene name to narrow the list (capitals do not matter), "
