@@ -33,7 +33,7 @@ The numeric `cmd` is the number in each doc page's `redirect_from: commands/<id>
 | Set Local Variable | 15 | b0 name (`global.x` for globals), b1 operator, b2 value (yellow box) |
 | Create Object | 16 | b0 |
 | Set String Variable | 20 | b0 name, b1 text, v0 relative (append) |
-| Trigger Pull Data | 66 | b0 save as, b1 pull key (`amount`, `user_name`, …) |
+| Trigger Pull Data | 66 | b0 save as, b1 pull key (`amount`, `user_name`, …). In a button started by Trigger Button, key `button_id` is the caller's id (SAMMI patch notes); not yet confirmed on hardware |
 | Delete Variable | 78 | b0 |
 | String to Number | 79 | b0 save as, b1 source variable |
 | String Position | 91 | b0 save as, b1 string, b2 search, b3 from, v0 case-insensitive |
@@ -46,6 +46,7 @@ The numeric `cmd` is the number in each doc page's `redirect_from: commands/<id>
 | Alert Message | 142 | b0 text |
 | Wait Until Variable Exists | 153 | b0 variable, b1 timeout ms |
 | Set/Get Object Variable | 165 / 164 | b0 object, b1 key, b2 value / save as |
+| Get Button Variable | 162 | b0 button id, b1 variable name, b2 save as. The other button must have Persistent Variables on. From the docs table; not yet confirmed on hardware |
 | Parse Array/Object | 168 | b0 save as, b1 JSON string |
 | HTTP Request | 169 | b0 url, b1 method, b2 header object name, b3 body JSON, b4 save as |
 | Wait For Timeout | 190 | b0 ms (yellow box: a bare variable name works, e.g. `stepMs`; `0` waits forever) |
@@ -53,6 +54,10 @@ The numeric `cmd` is the number in each doc page's `redirect_from: commands/<id>
 | Command Line (current) | 306 | b0 command, b1 save as, plus `"async": 1`. (135 is the deprecated one.) |
 
 **Blocks.** There is no End/Else command. A statement's `v0` is the number of following commands that belong to its block (nested statements count all of their descendants), and an If's `v1` is the size of the else block that follows the then block. Verified against Repeat/If/Switch examples in SAMMI's own docs.
+
+**Function calls.** SAMMI has no functions, but Trigger Button + Trigger Pull Data `button_id` + Get Button Variable make one: the caller (persistent) sets its settings and triggers a shared button, which pulls the caller's id and reads the settings back. Each queued run reads its own caller, so bursts do not overwrite each other. The deck's action buttons call `hueApply` this way.
+
+**Missing paths are fatal.** Reading `/$obj.a.b$/` or sizing `obj.a` when the path is not in the parsed object stops the button with a FATAL ERROR (`ds_list_find_value argument 1 incorrect type (undefined)`, in `scr_prepare_variable`), seen on SAMMI 2026.6.0 on Oct 30, 2026. Check the raw reply with String Position first and read the path only inside that If. The error's "Command Line" number is the 0-based `pos`.
 
 **Async (purple) commands** (HTTP Request, Command Line) fill their save variable later. Pattern: Delete Variable → async command → Wait Until Variable Exists.
 
