@@ -307,8 +307,10 @@ def bulbs_of_scene():
     """fxIds / fxXs / fxYs: the scene's bulbs and each one's scene color ("" when it has none)."""
     return [
         *send(f'{CURL} {SCENE_URL} -H "hue-application-key: /$hueKey$/"'),
-        parse("sc", "/$resp$/"),
-        arr_size("sc.data[0].actions", "nAct"),
+        set_local("nAct", "0"),
+        str_pos("hasActs", "/$resp$/", '"actions"'),
+        if_("hasActs", ">", "0", [parse("sc", "/$resp$/"), arr_size("sc.data[0].actions", "nAct")],
+            [alert("Hue: could not read scene slot /$lookValue$/ (/$resp$/). Run 'Hue: Link Scenes' again.")]),
         set_local("i", "0"),
         repeat("nAct", [
             set_string("rid", "/$sc.data[0].actions[i].target.rid$/"),
@@ -333,39 +335,47 @@ def bulbs_of_scene():
 
 def bulbs_of_target():
     """fxIds: the Hue 3 target's bulbs. A zone lists its bulbs; a room lists devices, so match each
-    bulb's owner device against the room's children. Colors come from the look (fxXs/fxYs)."""
+    bulb's owner device against the room's children. The group id is tried as a room, then as a zone,
+    and every array is read only after the reply proves it is there (a missing path crashes SAMMI)."""
     add = lambda rid_expr: [
         set_string("ids", f'/$sep$/"{rid_expr}"', rel=True),
         set_string("xs", '/$sep$/"/$fxColorX$/"', rel=True),
         set_string("ys", '/$sep$/"/$fxColorY$/"', rel=True),
         set_string("sep", ","),
     ]
+    get = lambda kind: send(f'{CURL} "https:///$hueIp$//clip/v2/resource/{kind}//$hueGroupId$/" -H "hue-application-key: /$hueKey$/"')
     return [
         if_("hueLightType", "==", '"light"', add("/$hueLightId$/"), [
             ini_load("group_id", "hueGroupId"),
-            ini_load("group_kind", "hueGroupKind"),
-            if_("hueGroupKind", "==", '"zone"', [
-                *send(f'{CURL} "https:///$hueIp$//clip/v2/resource/zone//$hueGroupId$/" -H "hue-application-key: /$hueKey$/"'),
-                parse("grp", "/$resp$/"),
-                arr_size("grp.data[0].children", "nCh"),
-                set_local("i", "0"),
-                repeat("nCh", [*add("/$grp.data[0].children[i].rid$/"), set_local("i", "1", op="+=")]),
+            *get("room"),
+            str_pos("hasKids", "/$resp$/", '"children"'),
+            if_("hasKids", "<=", "0", [*get("zone"), str_pos("hasKids", "/$resp$/", '"children"')]),
+            if_("hasKids", "<=", "0", [
+                alert("Hue: could not read the Hue 3 target's room or zone (/$resp$/). Run Hue 3: Pick Target again."),
             ], [
-                *send(f'{CURL} "https:///$hueIp$//clip/v2/resource/room//$hueGroupId$/" -H "hue-application-key: /$hueKey$/"'),
                 parse("grp", "/$resp$/"),
                 arr_size("grp.data[0].children", "nCh"),
-                *send(f'{CURL} "https:///$hueIp$//clip/v2/resource/light" -H "hue-application-key: /$hueKey$/"'),
-                parse("allLights", "/$resp$/"),
-                arr_size("allLights.data", "nAll"),
-                set_local("i", "0"),
-                repeat("nAll", [
-                    set_local("j", "0"),
-                    repeat("nCh", [
-                        str_pos("same", "/$allLights.data[i].owner.rid$/", "/$grp.data[0].children[j].rid$/"),
-                        if_("same", ">", "0", add("/$allLights.data[i].id$/")),
-                        set_local("j", "1", op="+="),
+                str_pos("isRoom", "/$resp$/", '"rtype":"device"'),
+                if_("isRoom", "<=", "0", [
+                    set_local("i", "0"),
+                    repeat("nCh", [*add("/$grp.data[0].children[i].rid$/"), set_local("i", "1", op="+=")]),
+                ], [
+                    *send(f'{CURL} "https:///$hueIp$//clip/v2/resource/light" -H "hue-application-key: /$hueKey$/"'),
+                    str_pos("hasData", "/$resp$/", '"owner"'),
+                    if_("hasData", ">", "0", [
+                        parse("allLights", "/$resp$/"),
+                        arr_size("allLights.data", "nAll"),
+                        set_local("i", "0"),
+                        repeat("nAll", [
+                            set_local("j", "0"),
+                            repeat("nCh", [
+                                str_pos("same", "/$allLights.data[i].owner.rid$/", "/$grp.data[0].children[j].rid$/"),
+                                if_("same", ">", "0", add("/$allLights.data[i].id$/")),
+                                set_local("j", "1", op="+="),
+                            ]),
+                            set_local("i", "1", op="+="),
+                        ]),
                     ]),
-                    set_local("i", "1", op="+="),
                 ]),
             ]),
         ]),
@@ -1133,6 +1143,10 @@ def main():
     }
     wrapper = {"deck_data": json.dumps(deck_data), "unique_id": uid, "include_image": {},
                "sammi_version": SAMMI_MIN_VERSION}
+    from audit_deck import audit                     # tools/audit_deck.py; nothing is written if it fails
+    problems = audit(wrapper)
+    if problems:
+        raise SystemExit("deck audit failed, nothing written:\n" + "\n".join(problems))
     OUT_DIR.mkdir(exist_ok=True)
     deck_json = json.dumps(wrapper)
     (OUT_DIR / "HueScenes.deck.json").write_text(deck_json, encoding="utf-8")
@@ -1140,10 +1154,7 @@ def main():
     inject_readme(deck_json)
     ids = [b["button_id"] for b in BUTTONS]
     assert len(ids) == len(set(ids)), "duplicate button ids"
-    from audit_deck import audit                     # tools/audit_deck.py
-    problems = audit(wrapper)
-    if problems:
-        raise SystemExit("deck audit failed:\n" + "\n".join(problems))
+
     print(f"wrote {OUT_DIR/'HueScenes.deck.json'} ({len(BUTTONS)} buttons, "
           f"{sum(len(b['command_list']) for b in BUTTONS)} commands)")
 

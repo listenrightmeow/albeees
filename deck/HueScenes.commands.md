@@ -536,7 +536,7 @@ Settings file: `hue_scenes.ini` in the SAMMI folder, section `[hue]`, keys `ip`,
 3. String Get Length `originLen` of `/$origin$/`
 4. If `originLen` == `0`  (block 1, else 0)
     5. Set String Variable `origin` = `hueApply`
-6. If `origin` == `"hueApply"`  (block 1, else 290)
+6. If `origin` == `"hueApply"`  (block 1, else 299)
     7. Alert: Hue: 'Hue: apply (shared)' runs when an action button calls it. Press an action button instead.
     8. Get Button Variable `look` from button `/$origin$/` -> `look`
     9. Get Button Variable `lookValue` from button `/$origin$/` -> `lookValue`
@@ -686,14 +686,14 @@ Settings file: `hue_scenes.ini` in the SAMMI folder, section `[hue]`, keys `ip`,
             153. If `effect` != `"stop"`  (block 2, else 0)
                 154. Alert: Hue: look off with an effect would turn the lights back on, so the effect was skipped.
                 155. Set Local Variable `fxKnown` = `0`
-    156. If `lookOk` == `1`  (block 140, else 0)
-        157. If `fxKnown` == `1`  (block 139, else 0)
-            158. If `effect` != `"none"`  (block 138, else 0)
+    156. If `lookOk` == `1`  (block 149, else 0)
+        157. If `fxKnown` == `1`  (block 148, else 0)
+            158. If `effect` != `"none"`  (block 147, else 0)
                 159. INI: Load Text hue_scenes.ini [hue] ip -> `hueIp`
                 160. INI: Load Text hue_scenes.ini [hue] key -> `hueKey`
                 161. INI: Load Text hue_scenes.ini [hue] light -> `hueLightId`
                 162. INI: Load Text hue_scenes.ini [hue] light_type -> `hueLightType`
-                163. If `effect` == `"breathe"`  (block 18, else 115)
+                163. If `effect` == `"breathe"`  (block 18, else 124)
                     164. If `look` == `"scene"`  (block 5, else 0)
                         165. INI: Load Text hue_scenes.ini [hue] scene_/$lookValue$/_light -> `offLight`
                         166. String Get Length `offLightLen` of `/$offLight$/`
@@ -721,113 +721,122 @@ Settings file: `hue_scenes.ini` in the SAMMI folder, section `[hue]`, keys `ip`,
                     188. If `look` == `"color"`  (block 2, else 0)
                         189. Set String Variable `fxColorX` = `/$colorX$/`
                         190. Set String Variable `fxColorY` = `/$colorY$/`
-                    191. If `look` == `"scene"`  (block 22, else 42)
+                    191. If `look` == `"scene"`  (block 26, else 47)
                         192. Delete Variable `resp`
                         193. Command Line: `curl.exe -sk -m 8 "https:///$hueIp$//clip/v2/resource/scene//$hueSceneId$/" -H "hue-application-key: /$hueKey$/"` -> save as `resp`
                         194. Wait Until Variable Exists `resp` (timeout 10000 ms)
-                        195. Parse Array/Object `sc` from `/$resp$/`
-                        196. Array Get Size `sc.data[0].actions` -> `nAct`
-                        197. Set Local Variable `i` = `0`
-                        198. Repeat `nAct` times  (block 15)
-                            199. Set String Variable `rid` = `/$sc.data[0].actions[i].target.rid$/`
-                            200. Set String Variable `cx` = `/$sc.data[0].actions[i].action.color.xy.x$/`
-                            201. Set String Variable `cy` = `/$sc.data[0].actions[i].action.color.xy.y$/`
-                            202. String Position `cxDot` = position of `.` in `/$cx$/`
-                            203. If `cxDot` <= `0`  (block 2, else 0)
-                                204. Set String Variable `cx` = ``
-                                205. Set String Variable `cy` = ``
-                            206. Set String Variable `onState` = `/$sc.data[0].actions[i].action.on.on$/`
-                            207. String Position `isOff` = position of `false` in `/$onState$/`
-                            208. If `isOff` <= `0`  (block 4, else 0)
-                                209. Set String Variable `ids` += `/$sep$/"/$rid$/"`
-                                210. Set String Variable `xs` += `/$sep$/"/$cx$/"`
-                                211. Set String Variable `ys` += `/$sep$/"/$cy$/"`
-                                212. Set String Variable `sep` = `,`
-                            213. Set Local Variable `i` += `1`
-                        214. If `hueLightType` == `"light"`  (block 4, else 37)
-                            215. Set String Variable `ids` += `/$sep$/"/$hueLightId$/"`
-                            216. Set String Variable `xs` += `/$sep$/"/$fxColorX$/"`
-                            217. Set String Variable `ys` += `/$sep$/"/$fxColorY$/"`
-                            218. Set String Variable `sep` = `,`
-                            219. INI: Load Text hue_scenes.ini [hue] group_id -> `hueGroupId`
-                            220. INI: Load Text hue_scenes.ini [hue] group_kind -> `hueGroupKind`
-                            221. If `hueGroupKind` == `"zone"`  (block 12, else 22)
-                                222. Delete Variable `resp`
-                                223. Command Line: `curl.exe -sk -m 8 "https:///$hueIp$//clip/v2/resource/zone//$hueGroupId$/" -H "hue-application-key: /$hueKey$/"` -> save as `resp`
-                                224. Wait Until Variable Exists `resp` (timeout 10000 ms)
-                                225. Parse Array/Object `grp` from `/$resp$/`
-                                226. Array Get Size `grp.data[0].children` -> `nCh`
-                                227. Set Local Variable `i` = `0`
-                                228. Repeat `nCh` times  (block 5)
-                                    229. Set String Variable `ids` += `/$sep$/"/$grp.data[0].children[i].rid$/"`
-                                    230. Set String Variable `xs` += `/$sep$/"/$fxColorX$/"`
-                                    231. Set String Variable `ys` += `/$sep$/"/$fxColorY$/"`
-                                    232. Set String Variable `sep` = `,`
-                                    233. Set Local Variable `i` += `1`
-                                234. Delete Variable `resp`
-                                235. Command Line: `curl.exe -sk -m 8 "https:///$hueIp$//clip/v2/resource/room//$hueGroupId$/" -H "hue-application-key: /$hueKey$/"` -> save as `resp`
-                                236. Wait Until Variable Exists `resp` (timeout 10000 ms)
-                                237. Parse Array/Object `grp` from `/$resp$/`
-                                238. Array Get Size `grp.data[0].children` -> `nCh`
-                                239. Delete Variable `resp`
-                                240. Command Line: `curl.exe -sk -m 8 "https:///$hueIp$//clip/v2/resource/light" -H "hue-application-key: /$hueKey$/"` -> save as `resp`
-                                241. Wait Until Variable Exists `resp` (timeout 10000 ms)
-                                242. Parse Array/Object `allLights` from `/$resp$/`
-                                243. Array Get Size `allLights.data` -> `nAll`
-                                244. Set Local Variable `i` = `0`
-                                245. Repeat `nAll` times  (block 10)
-                                    246. Set Local Variable `j` = `0`
-                                    247. Repeat `nCh` times  (block 7)
-                                        248. String Position `same` = position of `/$grp.data[0].children[j].rid$/` in `/$allLights.data[i].owner.rid$/`
-                                        249. If `same` > `0`  (block 4, else 0)
-                                            250. Set String Variable `ids` += `/$sep$/"/$allLights.data[i].id$/"`
-                                            251. Set String Variable `xs` += `/$sep$/"/$fxColorX$/"`
-                                            252. Set String Variable `ys` += `/$sep$/"/$fxColorY$/"`
-                                            253. Set String Variable `sep` = `,`
-                                        254. Set Local Variable `j` += `1`
-                                    255. Set Local Variable `i` += `1`
-                    256. Parse Array/Object `fxIds` from `[/$ids$/]`
-                    257. Parse Array/Object `fxXs` from `[/$xs$/]`
-                    258. Parse Array/Object `fxYs` from `[/$ys$/]`
-                    259. Array Get Size `fxIds` -> `nFx`
-                    260. Set String Variable `hueLightType` = `light`
-                    261. Set Local Variable `fxOk` = `0`
-                    262. Set String Variable `fxLastErr` = ``
-                    263. Set Local Variable `i` = `0`
-                    264. Repeat `nFx` times  (block 27)
-                        265. If `i` > `0`  (block 1, else 0)
-                            266. Wait For Timeout 150 ms
-                        267. Set String Variable `hueLightId` = `/$fxIds[i]$/`
-                        268. Set String Variable `fx` = `/$fxXs[i]$/`
-                        269. Set String Variable `fy` = `/$fxYs[i]$/`
-                        270. If `effect` == `"stop"`  (block 3, else 13)
-                            271. Delete Variable `resp`
-                            272. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"effects\":{\"effect\":\"no_effect\"}}"` -> save as `resp`
-                            273. Wait Until Variable Exists `resp` (timeout 10000 ms)
-                            274. String Get Length `fxLen` of `/$fx$/`
-                            275. If `fxLen` > `0`  (block 3, else 3)
-                                276. Delete Variable `resp`
-                                277. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"effects_v2\":{\"action\":{\"effect\":\"/$effect$/\",\"parameters\":{\"speed\":/$speed$/,\"color\":{\"xy\":{\"x\":/$fx$/,\"y\":/$fy$/}}}}}}"` -> save as `resp`
-                                278. Wait Until Variable Exists `resp` (timeout 10000 ms)
-                                279. Delete Variable `resp`
-                                280. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"effects_v2\":{\"action\":{\"effect\":\"/$effect$/\",\"parameters\":{\"speed\":/$speed$/}}}}"` -> save as `resp`
-                                281. Wait Until Variable Exists `resp` (timeout 10000 ms)
-                            282. String Position `errPos` = position of `"description"` in `/$resp$/`
-                            283. If `errPos` > `0`  (block 3, else 0)
-                                284. Delete Variable `resp`
-                                285. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"effects\":{\"effect\":\"/$effect$/\"}}"` -> save as `resp`
-                                286. Wait Until Variable Exists `resp` (timeout 10000 ms)
-                        287. String Position `errPos` = position of `"description"` in `/$resp$/`
-                        288. If `errPos` > `0`  (block 1, else 1)
-                            289. Set String Variable `fxLastErr` = `/$resp$/`
-                            290. Set Local Variable `fxOk` += `1`
-                        291. Set Local Variable `i` += `1`
-                    292. If `effect` != `"stop"`  (block 4, else 0)
-                        293. If `nFx` == `0`  (block 1, else 2)
-                            294. Alert: Hue: found no bulbs for the effect. Run Hue 3: Pick Target again, then try once more.
-                            295. If `fxOk` == `0`  (block 1, else 0)
-                                296. Alert: Hue: no bulb accepted the effect '/$effect$/'. Bridge said: /$fxLastErr$/
-    297. Overtime 1000 ms
+                        195. Set Local Variable `nAct` = `0`
+                        196. String Position `hasActs` = position of `"actions"` in `/$resp$/`
+                        197. If `hasActs` > `0`  (block 2, else 1)
+                            198. Parse Array/Object `sc` from `/$resp$/`
+                            199. Array Get Size `sc.data[0].actions` -> `nAct`
+                            200. Alert: Hue: could not read scene slot /$lookValue$/ (/$resp$/). Run 'Hue: Link Scenes' again.
+                        201. Set Local Variable `i` = `0`
+                        202. Repeat `nAct` times  (block 15)
+                            203. Set String Variable `rid` = `/$sc.data[0].actions[i].target.rid$/`
+                            204. Set String Variable `cx` = `/$sc.data[0].actions[i].action.color.xy.x$/`
+                            205. Set String Variable `cy` = `/$sc.data[0].actions[i].action.color.xy.y$/`
+                            206. String Position `cxDot` = position of `.` in `/$cx$/`
+                            207. If `cxDot` <= `0`  (block 2, else 0)
+                                208. Set String Variable `cx` = ``
+                                209. Set String Variable `cy` = ``
+                            210. Set String Variable `onState` = `/$sc.data[0].actions[i].action.on.on$/`
+                            211. String Position `isOff` = position of `false` in `/$onState$/`
+                            212. If `isOff` <= `0`  (block 4, else 0)
+                                213. Set String Variable `ids` += `/$sep$/"/$rid$/"`
+                                214. Set String Variable `xs` += `/$sep$/"/$cx$/"`
+                                215. Set String Variable `ys` += `/$sep$/"/$cy$/"`
+                                216. Set String Variable `sep` = `,`
+                            217. Set Local Variable `i` += `1`
+                        218. If `hueLightType` == `"light"`  (block 4, else 42)
+                            219. Set String Variable `ids` += `/$sep$/"/$hueLightId$/"`
+                            220. Set String Variable `xs` += `/$sep$/"/$fxColorX$/"`
+                            221. Set String Variable `ys` += `/$sep$/"/$fxColorY$/"`
+                            222. Set String Variable `sep` = `,`
+                            223. INI: Load Text hue_scenes.ini [hue] group_id -> `hueGroupId`
+                            224. Delete Variable `resp`
+                            225. Command Line: `curl.exe -sk -m 8 "https:///$hueIp$//clip/v2/resource/room//$hueGroupId$/" -H "hue-application-key: /$hueKey$/"` -> save as `resp`
+                            226. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                            227. String Position `hasKids` = position of `"children"` in `/$resp$/`
+                            228. If `hasKids` <= `0`  (block 4, else 0)
+                                229. Delete Variable `resp`
+                                230. Command Line: `curl.exe -sk -m 8 "https:///$hueIp$//clip/v2/resource/zone//$hueGroupId$/" -H "hue-application-key: /$hueKey$/"` -> save as `resp`
+                                231. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                                232. String Position `hasKids` = position of `"children"` in `/$resp$/`
+                            233. If `hasKids` <= `0`  (block 1, else 30)
+                                234. Alert: Hue: could not read the Hue 3 target's room or zone (/$resp$/). Run Hue 3: Pick Target again.
+                                235. Parse Array/Object `grp` from `/$resp$/`
+                                236. Array Get Size `grp.data[0].children` -> `nCh`
+                                237. String Position `isRoom` = position of `"rtype":"device"` in `/$resp$/`
+                                238. If `isRoom` <= `0`  (block 7, else 19)
+                                    239. Set Local Variable `i` = `0`
+                                    240. Repeat `nCh` times  (block 5)
+                                        241. Set String Variable `ids` += `/$sep$/"/$grp.data[0].children[i].rid$/"`
+                                        242. Set String Variable `xs` += `/$sep$/"/$fxColorX$/"`
+                                        243. Set String Variable `ys` += `/$sep$/"/$fxColorY$/"`
+                                        244. Set String Variable `sep` = `,`
+                                        245. Set Local Variable `i` += `1`
+                                    246. Delete Variable `resp`
+                                    247. Command Line: `curl.exe -sk -m 8 "https:///$hueIp$//clip/v2/resource/light" -H "hue-application-key: /$hueKey$/"` -> save as `resp`
+                                    248. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                                    249. String Position `hasData` = position of `"owner"` in `/$resp$/`
+                                    250. If `hasData` > `0`  (block 14, else 0)
+                                        251. Parse Array/Object `allLights` from `/$resp$/`
+                                        252. Array Get Size `allLights.data` -> `nAll`
+                                        253. Set Local Variable `i` = `0`
+                                        254. Repeat `nAll` times  (block 10)
+                                            255. Set Local Variable `j` = `0`
+                                            256. Repeat `nCh` times  (block 7)
+                                                257. String Position `same` = position of `/$grp.data[0].children[j].rid$/` in `/$allLights.data[i].owner.rid$/`
+                                                258. If `same` > `0`  (block 4, else 0)
+                                                    259. Set String Variable `ids` += `/$sep$/"/$allLights.data[i].id$/"`
+                                                    260. Set String Variable `xs` += `/$sep$/"/$fxColorX$/"`
+                                                    261. Set String Variable `ys` += `/$sep$/"/$fxColorY$/"`
+                                                    262. Set String Variable `sep` = `,`
+                                                263. Set Local Variable `j` += `1`
+                                            264. Set Local Variable `i` += `1`
+                    265. Parse Array/Object `fxIds` from `[/$ids$/]`
+                    266. Parse Array/Object `fxXs` from `[/$xs$/]`
+                    267. Parse Array/Object `fxYs` from `[/$ys$/]`
+                    268. Array Get Size `fxIds` -> `nFx`
+                    269. Set String Variable `hueLightType` = `light`
+                    270. Set Local Variable `fxOk` = `0`
+                    271. Set String Variable `fxLastErr` = ``
+                    272. Set Local Variable `i` = `0`
+                    273. Repeat `nFx` times  (block 27)
+                        274. If `i` > `0`  (block 1, else 0)
+                            275. Wait For Timeout 150 ms
+                        276. Set String Variable `hueLightId` = `/$fxIds[i]$/`
+                        277. Set String Variable `fx` = `/$fxXs[i]$/`
+                        278. Set String Variable `fy` = `/$fxYs[i]$/`
+                        279. If `effect` == `"stop"`  (block 3, else 13)
+                            280. Delete Variable `resp`
+                            281. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"effects\":{\"effect\":\"no_effect\"}}"` -> save as `resp`
+                            282. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                            283. String Get Length `fxLen` of `/$fx$/`
+                            284. If `fxLen` > `0`  (block 3, else 3)
+                                285. Delete Variable `resp`
+                                286. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"effects_v2\":{\"action\":{\"effect\":\"/$effect$/\",\"parameters\":{\"speed\":/$speed$/,\"color\":{\"xy\":{\"x\":/$fx$/,\"y\":/$fy$/}}}}}}"` -> save as `resp`
+                                287. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                                288. Delete Variable `resp`
+                                289. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"effects_v2\":{\"action\":{\"effect\":\"/$effect$/\",\"parameters\":{\"speed\":/$speed$/}}}}"` -> save as `resp`
+                                290. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                            291. String Position `errPos` = position of `"description"` in `/$resp$/`
+                            292. If `errPos` > `0`  (block 3, else 0)
+                                293. Delete Variable `resp`
+                                294. Command Line: `curl.exe -sk -m 8 -X PUT "https:///$hueIp$//clip/v2/resource//$hueLightType$///$hueLightId$/" -H "hue-application-key: /$hueKey$/" -H "Content-Type: application/json" -d "{\"on\":{\"on\":true},\"effects\":{\"effect\":\"/$effect$/\"}}"` -> save as `resp`
+                                295. Wait Until Variable Exists `resp` (timeout 10000 ms)
+                        296. String Position `errPos` = position of `"description"` in `/$resp$/`
+                        297. If `errPos` > `0`  (block 1, else 1)
+                            298. Set String Variable `fxLastErr` = `/$resp$/`
+                            299. Set Local Variable `fxOk` += `1`
+                        300. Set Local Variable `i` += `1`
+                    301. If `effect` != `"stop"`  (block 4, else 0)
+                        302. If `nFx` == `0`  (block 1, else 2)
+                            303. Alert: Hue: found no bulbs for the effect. Run Hue 3: Pick Target again, then try once more.
+                            304. If `fxOk` == `0`  (block 1, else 0)
+                                305. Alert: Hue: no bulb accepted the effect '/$effect$/'. Bridge said: /$fxLastErr$/
+    306. Overtime 1000 ms
 
 ## Hue: Auto rediscover  (`hueStartup`)
 - Trigger: SAMMI Trigger, SAMMI Startup

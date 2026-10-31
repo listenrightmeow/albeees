@@ -44,17 +44,25 @@ def audit(w):
             if c.get("pos") != float(i): bad(bid, f"pos {c.get('pos')} at index {i}")
             if int(c["cmd"]) not in KNOWN: bad(bid, f"unknown cmd {c['cmd']} at {i}")
         # block structure: every block must fit inside its parent
-        stack = []  # (end_index_exclusive, cmd)
+        stack = []  # (end_index_exclusive, cmd, left operand)
+        setter = {}  # variable -> cmd that last set it
         for i, c in enumerate(cl):
             while stack and i >= stack[-1][0]: stack.pop()
             k = int(c["cmd"])
             if k == 11 and not any(s[1] == 9 for s in stack): bad(bid, f"Break at {i+1} not inside a Repeat")
+            # A path read from a bridge reply (a.b...) crashes Array Get Size when it is missing, so it must be guarded.
+            if k == 100 and "." in c.get("b0", ""):
+                guards = [s for s in stack if s[1] == 7]
+                if not guards or setter.get(guards[-1][2]) != 91:
+                    bad(bid, f"Array Get Size `{c['b0']}` at {i+1} is not guarded by a String Position check of the reply")
+            if k == 91: setter[c.get("b0", "")] = 91
+            elif k in SAVE_BOX: setter[c.get(f"b{SAVE_BOX[k]}", "")] = k
             if k in (7, 9):
                 n = int(c.get("v0", 0)) + (int(c.get("v1", 0)) if k == 7 else 0)
                 end = i + 1 + n
                 if end > len(cl): bad(bid, f"block at {i+1} runs past the end")
                 if stack and end > stack[-1][0]: bad(bid, f"block at {i+1} overruns its parent")
-                stack.append((end, k))
+                stack.append((end, k, c.get("b0", "")))
             if k in (7, 11):
                 if c.get("b1") not in OPS: bad(bid, f"bad operator {c.get('b1')!r} at {i+1}")
                 if k == 7 and int(c.get("v2", 0)) != 1: bad(bid, f"If at {i+1} has v2={c.get('v2')}")
